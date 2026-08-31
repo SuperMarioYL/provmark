@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "name": "provmark",
+  "github": "https://github.com/SuperMarioYL/provmark",
+  "host": "provmark.lei6393.com",
+  "lang": { "primary": "zh", "toggle": true },
+  "accent": ["#8b7cf6", "#4d9bff", "#34e5d0"],
+  "hero": {
+    "eyebrow": {
+      "zh": "行级归属 · 人类/代理分清 · 未审阅即提醒",
+      "en": "line-level authorship · human vs agent · flags unreviewed"
+    },
+    "headline": {
+      "zh": "git blame 看不出哪行是 AI 写的，provmark 标得清",
+      "en": "git blame can't tell which lines your AI wrote, provmark can"
+    },
+    "sub": {
+      "zh": "读取代理会话日志，把每处改动对齐到 git diff，标出人类还是代理，归属随提交一起留下。",
+      "en": "It reads the agent's session log, aligns each edit to the git diff, marks it human or agent, and persists that attribution with the commit."
+    },
+    "command": "provmark stamp --from agent-session.jsonl"
+  },
+  "advantages": [
+    {
+      "title": { "zh": "人和代理的改动分得开", "en": "Human and agent edits, separated" },
+      "body": {
+        "zh": "代理和你一起改了代码，git blame 却把你们压成同一个提交者。provmark 把每处改动盖成人类或代理，归属随提交一起留下——换机器、换会话都不丢。",
+        "en": "An agent edited alongside you, and git blame collapses you into one committer. provmark stamps every edit human or agent and keeps that split with the commit — across machines, sessions, and clones."
+      },
+      "chips": {
+        "zh": ["编辑级归属", "随提交留存", "无服务器无数据库"],
+        "en": ["edit-level attribution", "persists with the commit", "no server, no database"]
+      }
+    },
+    {
+      "title": { "zh": "逐行看清是谁写的", "en": "See who wrote each line" },
+      "body": {
+        "zh": "git blame 把整段提交都报成你。provmark blame 在它旁边逐行标出人类还是代理——代理写的那几行一下就亮出来。",
+        "en": "git blame reports the whole commit as you. provmark blame marks human or agent per line right beside it — the lines the agent wrote light up at once."
+      },
+      "chips": {
+        "zh": ["行级人类/代理", "紧贴 git blame", "即开即看"],
+        "en": ["line-level human/agent", "beside git blame", "instant"]
+      }
+    },
+    {
+      "title": { "zh": "代理改动不再漏审", "en": "No agent edit slips past unreviewed" },
+      "body": {
+        "zh": "代理写的行混进提交，没人提醒就容易漏审。provmark review 列出未审阅的代理改动并定位到具体范围——只提醒，绝不阻断你的提交。",
+        "en": "Agent-written lines slip into commits and, without a nudge, go unreviewed. provmark review lists unreviewed agent changes and points to the exact ranges — it only warns, never blocks your commit."
+      },
+      "chips": {
+        "zh": ["未审阅即列出", "只提醒不阻断", "定位到具体范围"],
+        "en": ["lists unreviewed", "warns, never blocks", "points to exact ranges"]
+      }
+    }
+  ],
+  "scene": { "kind": "particle-field" },
+  "cta": {
+    "primary": {
+      "label": { "zh": "开始使用", "en": "Get started" },
+      "href": "https://github.com/SuperMarioYL/provmark"
+    },
+    "secondary": {
+      "label": { "zh": "查看演示", "en": "See the demo" },
+      "href": "https://github.com/SuperMarioYL/provmark#demo"
+    }
+  },
+  "footer": {
+    "tag": {
+      "zh": "git blame 给提交者，provmark 给编辑级归属。",
+      "en": "git blame gives the committer; provmark gives edit-level authorship."
+    }
+  }
+}
