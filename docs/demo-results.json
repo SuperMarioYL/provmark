@@ -1,0 +1,17 @@
+{
+  "version": "0.1.0",
+  "scope": "Actual Git diff correlation and persisted review marking over a temporary repository with explicit synthetic edit events. No real agent logs or cryptographic authorship proof.",
+  "inputs": [
+    {
+      "path": "examples/presentation-demo.py",
+      "sha256": "c7973c557cb063db56fc798a7f34cefb48b78609875712cd7837efa3cc54c7dd"
+    }
+  ],
+  "steps": [
+    {
+      "command": "python3 examples/presentation-demo.py",
+      "output": "1 unreviewed agent region(s):\n  example.py:13-16  claude-code synthetic-agent\n\nreview with: provmark review --mark <file>:<start>-<end>\nmarked 1 agent region(s) reviewed in example.py:13-16\nno unreviewed agent regions — clean to commit\n{\n  \"human_hunks\": 1,\n  \"agent_hunks\": 1,\n  \"unreviewed_before\": 1,\n  \"unreviewed_after\": 0\n}\n",
+      "exit_code": 0
+    }
+  ]
+}

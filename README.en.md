@@ -1,136 +1,120 @@
-<div align="right"><sub><b>English</b> &nbsp;|&nbsp; <a href="./README.md">简体中文</a></sub></div>
+**English** | [简体中文](README.md)
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/hero-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="./assets/hero-light.svg">
-  <img src="./assets/hero-light.svg" width="880" alt="provmark — edit-level human-vs-agent authorship stamps">
+  <source media="(max-width: 640px) and (prefers-color-scheme: dark)" srcset="assets/presentation/hero-mobile-dark.svg">
+  <source media="(max-width: 640px)" srcset="assets/presentation/hero-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/presentation/hero-dark.svg">
+  <img src="assets/presentation/hero-light.svg" width="1000" alt="Mark Git diff regions using supplied agent edit logs, display provenance beside blame and persist review state.">
 </picture>
 
-<p align="center"><sub>provmark is the edit-level authorship stamp that separates human-vs-agent lines for agent-coding devs.</sub></p>
+**Mark Git diff regions using supplied agent edit logs, display provenance beside blame and persist review state.**
 
-**An AI agent edited code alongside you, but `git blame` only shows the committer — provmark stamps every edited region as human or agent at edit granularity, so a review-gate can flag unreviewed agent changes.**
+`v0.1.0` · `Go 1.24+ / Git` · [MIT](LICENSE)
 
-<p align="center">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="license"></a>
-  <a href="https://github.com/SuperMarioYL/provmark/releases"><img src="https://img.shields.io/github/v/release/SuperMarioYL/provmark" alt="release"></a>
-  <a href="https://github.com/SuperMarioYL/provmark/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/SuperMarioYL/provmark/ci.yml?branch=main&label=ci" alt="ci"></a>
-  <img src="https://img.shields.io/badge/Go-1.24-0071E3" alt="go">
-</p>
+[Website](https://provmark.lei6393.com) · [Demo record](docs/demo-results.json)
 
-## Contents
+## Why use it
 
-- [Architecture](#architecture)
-- [Why edit-level](#why-edit-level)
-- [Install](#install)
-- [Quickstart](#quickstart)
-- [Usage](#usage)
-- [Demo](#demo)
-- [Roadmap](#roadmap)
-- [License](#license)
+Git records commit authors while people and agents can alternate edits in one working tree. provmark adds provenance based on overlap between logged edits and diff ranges, helping reviewers locate agent-marked regions. It relies on log completeness rather than inferring authorship from code.
 
-<h2><img src="https://api.iconify.design/tabler:topology-star-3.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Architecture</h2>
+## Architecture
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/atlas-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="./assets/atlas-light.svg">
-  <img src="./assets/atlas-light.svg" width="880" alt="architecture: agent session log and git diff feed a correlator that writes a .provmark.json sidecar, read by blame / review / hook">
+  <source media="(max-width: 640px) and (prefers-color-scheme: dark)" srcset="assets/presentation/architecture-mobile-dark.svg">
+  <source media="(max-width: 640px)" srcset="assets/presentation/architecture-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/presentation/architecture-dark.svg">
+  <img src="assets/presentation/architecture-light.svg" width="1000" alt="Adapters read neutral JSONL edit events, the Git module reads working-tree diffs against HEAD, and the correlator creates one Stamp per hunk. Hunks overlapping an agent event become agent; others default to human. `.provmark.json` stores ranges, sessions and Reviewed state for blame/review.">
 </picture>
 
-One Go binary, one process. The agent session log is normalised into edit-events by an adapter, aligned hunk-by-hunk against `git diff`, and each region is stamped `human`/`agent` into a committed `.provmark.json` sidecar. `blame`, `review`, and the pre-commit hook all read the same sidecar. No server, no database, no daemon — the durable record carrying provenance is that one JSON file in the commit.
+Adapters read neutral JSONL edit events, the Git module reads working-tree diffs against HEAD, and the correlator creates one Stamp per hunk. Hunks overlapping an agent event become agent; others default to human. `.provmark.json` stores ranges, sessions and Reviewed state for blame/review.
 
-<h2><img src="https://api.iconify.design/tabler:bolt.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Why edit-level</h2>
+Source entry points: [cmd/provmark/main.go](cmd/provmark/main.go) · [cmd/provmark/hook.go](cmd/provmark/hook.go) · [internal/agent/adapter.go](internal/agent/adapter.go) · [internal/git/diff.go](internal/git/diff.go) · [internal/provenance/correlate.go](internal/provenance/correlate.go) · [internal/provenance/stamp.go](internal/provenance/stamp.go) · [internal/review/gate.go](internal/review/gate.go)
 
-When agent edits make up most of a commit, `git blame` collapses human and agent changes into a single author — it attributes to the committer and cannot tell which lines inside one commit the agent wrote. That's structural, not "not shipped yet": git's object model is commit→blob→tree with no line-origin field.
+## Install
 
-provmark fills exactly that missing field: it aligns the agent's session edit-events to `git diff` hunks, stamps each region `human` or `agent`, and writes it into the committed `.provmark.json` sidecar. The starting point is [anthropics/claude-code#66504](https://github.com/anthropics/claude-code/issues/66504) — a 110-upvote dispute over session URLs being injected into commits by default. That argument is for provenance in commits that is intentional and reviewable, not baked in as a side effect. `git blame` gives you the committer; provmark gives you edit-level human/agent attribution.
-
-<h2><img src="https://api.iconify.design/tabler:rocket.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Install</h2>
+Requires Go 1.24+ and Git; the self-contained demo also requires Python 3. It creates a synthetic baseline commit in a temporary repository without changing this project’s history.
 
 ```bash
-go install github.com/SuperMarioYL/provmark@latest
+git clone https://github.com/SuperMarioYL/provmark.git
+cd provmark
+go build -o bin/provmark ./cmd/provmark
 ```
 
-or build from source:
+## Quickstart
+
+The example makes two separated edits and supplies a synthetic agent event for the second, then runs stamp, review and mark and inspects the sidecar. No real agent log is used.
 
 ```bash
-git clone https://github.com/SuperMarioYL/provmark
-cd provmark && go build ./cmd/provmark
+python3 examples/presentation-demo.py
 ```
 
-<h2><img src="https://api.iconify.design/tabler:rocket.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Quickstart</h2>
+Complete inputs and execution steps are included in the commands above and the [demo record](docs/demo-results.json).
 
-Three lines in your repo and you can see the agent attribution `git blame` cannot show:
+## Usage
 
 ```bash
-cd your-repo
-provmark stamp --from agent-session.jsonl --vendor claude-code   # stamp → .provmark.json
-provmark blame main.go                                           # line-level human/agent view
+./bin/provmark stamp --from events.jsonl --vendor claude-code --dir .
+./bin/provmark blame app.go --dir .
+./bin/provmark review --dir .
+./bin/provmark review --mark app.go:15-17 --dir .
+```
+Each event is `{"file":"app.go","start_line":15,"end_line":17,"session_id":"session-1","vendor":"claude-code"}`. Ranges use one-based inclusive lines in the current file. Choose mark ranges from actual review output.
+
+## Recorded demo
+
+<picture>
+  <source media="(max-width: 640px) and (prefers-color-scheme: dark)" srcset="assets/presentation/process-mobile-dark.svg">
+  <source media="(max-width: 640px)" srcset="assets/presentation/process-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/presentation/process-dark.svg">
+  <img src="assets/presentation/process-light.svg" width="1000" alt="The example makes two separated edits and supplies a synthetic agent event for the second, then runs stamp, review and mark and inspects the sidecar. No real agent log is used.">
+</picture>
+
+### Stamp and persist review
+
+Two hunks are marked human and agent; the latter’s unreviewed count changes from 1 to 0.
+
+```text
+$ python3 examples/presentation-demo.py
+1 unreviewed agent region(s):
+  example.py:13-16  claude-code synthetic-agent
+
+review with: provmark review --mark <file>:<start>-<end>
+marked 1 agent region(s) reviewed in example.py:13-16
+no unreviewed agent regions — clean to commit
+{
+  "human_hunks": 1,
+  "agent_hunks": 1,
+  "unreviewed_before": 1,
+  "unreviewed_after": 0
+}
 ```
 
-<details><summary>sample output</summary>
+## Capabilities and integration
 
-```
-$ provmark stamp --from agent-session.jsonl --vendor claude-code
-stamped 2 hunk(s) into .provmark.json
-  agent: 1   human: 1   (diff base dea69c8)
+<picture>
+  <source media="(max-width: 640px) and (prefers-color-scheme: dark)" srcset="assets/presentation/integrations-mobile-dark.svg">
+  <source media="(max-width: 640px)" srcset="assets/presentation/integrations-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/presentation/integrations-dark.svg">
+  <img src="assets/presentation/integrations-light.svg" width="1000" alt="vendor selects claude-code, deepseek-coder or qwen-coder parsers; the names do not prove compatibility with every native session format. init installs a pre-commit hook, while current review behavior does not block commits.">
+</picture>
 
-$ provmark blame app.go
-provmark blame app.go (git blame on left, author-kind on right)
+vendor selects claude-code, deepseek-coder or qwen-coder parsers; the names do not prove compatibility with every native session format. init installs a pre-commit hook, while current review behavior does not block commits.
 
-LINE  KIND   COMMIT   GIT AUTHOR    CONTENT
-1     human  dea69c8  You           package main
-4     human  0000000  Not Committ…  	return "human typed this line"
-14    agent  dea69c8  You           // 7
-    agent: sess-abc (claude-code)
-16    agent  dea69c8  You           func agentFn() string {
-    agent: sess-abc (claude-code)
-17    agent  0000000  Not Committ…  	return "agent generated this line"
-    agent: sess-abc (claude-code)
-```
 
-</details>
 
-<h2><img src="https://api.iconify.design/tabler:terminal-2.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Usage</h2>
+## Configuration
 
-The core subcommands (full list at `provmark --help`):
+`--dir` selects the repository, `--from` selects events and `--vendor` selects a parser. stamp inspects staged and unstaged changes against HEAD; commit_sha in the sidecar identifies the diff base. Restamping attempts to preserve existing review state for unchanged regions.
 
-```bash
-# 1. stamp: align agent edit-events with git diff, write .provmark.json
-provmark stamp --from agent-session.jsonl --vendor claude-code
+## Roadmap and scope
 
-# 2. review-gate: list unreviewed agent regions; --mark marks one reviewed
-provmark review
-provmark review --mark app.go:15-17
+Stamping, blame display and persistent review marks are implemented. Stronger native-log adapters and commit-time warnings require further validation. Cryptographic provenance proof and blocking commits are outside current capability.
 
-# 3. line-level attribution: human/agent per line beside git blame
-provmark blame app.go
+- The unit is a diff hunk, which can include context lines; this is not independent authorship proof for every character.
+- Missing or unreadable logs cause hunks to default to human; that label does not establish verified human authorship.
 
-# 4. init: install the pre-commit hook (a non-blocking stub in v0.1)
-provmark init
-```
+![Terminal recording](assets/demo.gif) · [Recording script](docs/demo.tape)
 
-The **agent edit-event log** is a neutral JSONL contract — one `{"file","start_line","end_line","session_id","vendor"}` per line. `--vendor` selects the adapter: `claude-code` (default), `deepseek-coder`, `qwen-coder`. The format is reconciled against real session logs per `docs/absorption-probe.md`; when a log can't be read it degrades gracefully — every hunk stamps `human`, never a hard failure.
+## License
 
-> v0.1 contract: the review-gate only warns, never blocks a commit; stamps are trust-on-first-use with no cryptographic signing.
-
-<h2><img src="https://api.iconify.design/tabler:photo.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Demo</h2>
-
-Ten minutes from `git clone` to seeing line-level human/agent attribution — `git blame` reports the whole commit as "You", while provmark lights up the agent-written lines as `agent`:
-
-![demo](assets/demo.gif)
-
-Reproduce in one command: `bash examples/stamp-review-demo.sh` (needs `go` and `git`).
-
-<h2><img src="https://api.iconify.design/tabler:map-2.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Roadmap</h2>
-
-- [x] **m1 — stamp + blame + review flagging**: `provmark stamp` aligns agent edit-events with git diff and writes `.provmark.json`; `provmark blame` gives a line-level human/agent view; `provmark review` flags unreviewed agent regions; the absorption probe (`docs/absorption-probe.md`).
-- [ ] **m2 — review-gate persistence + hook**: `review --mark` persists `Reviewed` status; the pre-commit hook warns (never blocks) on unreviewed agent regions at commit time.
-- [ ] **m3 — before/after demo + bilingual launch**: record the `provmark blame` before/after demo cast; ship the zh README + bilingual sibling; launch on Show HN + 掘金 + V2EX and seed the 17 commenters on claude-code#66504.
-
-The absorption probe is the m1 kill-trigger: if Claude Code or a 国产 coding agent already emits native edit-level human/agent attribution → kill immediately, because the primitive is absorbed into the substrate it rides. The current verdict is in `docs/absorption-probe.md`.
-
-<h2><img src="https://api.iconify.design/tabler:license.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> License</h2>
-
-MIT, see [LICENSE](./LICENSE). Issues and PRs welcome.
-
-<p align="center"><sub><a href="./LICENSE">MIT</a> © 2026 SuperMarioYL</sub></p>
+[MIT](LICENSE)

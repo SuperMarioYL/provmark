@@ -1,75 +1,236 @@
 {
-  "schema": 1,
+  "schema": 3,
   "name": "provmark",
   "github": "https://github.com/SuperMarioYL/provmark",
   "host": "provmark.lei6393.com",
-  "lang": { "primary": "zh", "toggle": true },
-  "accent": ["#8b7cf6", "#4d9bff", "#34e5d0"],
+  "palette": "auto",
+  "lang": {
+    "primary": "zh",
+    "toggle": true
+  },
+  "meta": {
+    "visual_profile": "neon-particle",
+    "content_version": "0.1.0",
+    "demo_source": "docs/demo-results.json"
+  },
   "hero": {
     "eyebrow": {
-      "zh": "行级归属 · 人类/代理分清 · 未审阅即提醒",
-      "en": "line-level authorship · human vs agent · flags unreviewed"
+      "zh": "根据提供的 Agent 编辑日志标记 Git diff 区域，在 blame 旁展示来源，并保存审阅状态。",
+      "en": "Mark Git diff regions using supplied agent edit logs, display provenance beside blame and persist review state."
     },
     "headline": {
-      "zh": "git blame 看不出哪行是 AI 写的，provmark 标得清",
-      "en": "git blame can't tell which lines your AI wrote, provmark can"
+      "zh": "把编辑事件与待审阅代码联系起来。",
+      "en": "Connect edit events to code review."
     },
     "sub": {
-      "zh": "读取代理会话日志，把每处改动对齐到 git diff，标出人类还是代理，归属随提交一起留下。",
-      "en": "It reads the agent's session log, aligns each edit to the git diff, marks it human or agent, and persists that attribution with the commit."
+      "zh": "根据提供的 Agent 编辑日志标记 Git diff 区域，在 blame 旁展示来源，并保存审阅状态。",
+      "en": "Mark Git diff regions using supplied agent edit logs, display provenance beside blame and persist review state."
     },
-    "command": "provmark stamp --from agent-session.jsonl"
+    "href": "#quickstart",
+    "cta": {
+      "zh": "运行示例",
+      "en": "Run the example"
+    },
+    "ctaGithub": {
+      "zh": "查看源码",
+      "en": "View source"
+    }
+  },
+  "scene": {
+    "kind": "neon-graph",
+    "caption": {
+      "zh": "图示展示组件关系；实际输出见下方示例。",
+      "en": "An illustrative component scene; recorded output appears below."
+    },
+    "fallback": "/assets/presentation/scene-dark.svg",
+    "fallbackLight": "/assets/presentation/scene-light.svg"
   },
   "advantages": [
     {
-      "title": { "zh": "人和代理的改动分得开", "en": "Human and agent edits, separated" },
-      "body": {
-        "zh": "代理和你一起改了代码，git blame 却把你们压成同一个提交者。provmark 把每处改动盖成人类或代理，归属随提交一起留下——换机器、换会话都不丢。",
-        "en": "An agent edited alongside you, and git blame collapses you into one committer. provmark stamps every edit human or agent and keeps that split with the commit — across machines, sessions, and clones."
+      "title": {
+        "zh": "连接来源与位置",
+        "en": "Link source and location"
       },
-      "chips": {
-        "zh": ["编辑级归属", "随提交留存", "无服务器无数据库"],
-        "en": ["edit-level attribution", "persists with the commit", "no server, no database"]
+      "body": {
+        "zh": "编辑事件对齐 diff 区间。",
+        "en": "Align edit events with diff ranges."
       }
     },
     {
-      "title": { "zh": "逐行看清是谁写的", "en": "See who wrote each line" },
-      "body": {
-        "zh": "git blame 把整段提交都报成你。provmark blame 在它旁边逐行标出人类还是代理——代理写的那几行一下就亮出来。",
-        "en": "git blame reports the whole commit as you. provmark blame marks human or agent per line right beside it — the lines the agent wrote light up at once."
+      "title": {
+        "zh": "记录复核",
+        "en": "Record review"
       },
-      "chips": {
-        "zh": ["行级人类/代理", "紧贴 git blame", "即开即看"],
-        "en": ["line-level human/agent", "beside git blame", "instant"]
+      "body": {
+        "zh": "Reviewed 状态保存到侧车。",
+        "en": "Persist Reviewed in the sidecar."
       }
     },
     {
-      "title": { "zh": "代理改动不再漏审", "en": "No agent edit slips past unreviewed" },
-      "body": {
-        "zh": "代理写的行混进提交，没人提醒就容易漏审。provmark review 列出未审阅的代理改动并定位到具体范围——只提醒，绝不阻断你的提交。",
-        "en": "Agent-written lines slip into commits and, without a nudge, go unreviewed. provmark review lists unreviewed agent changes and points to the exact ranges — it only warns, never blocks your commit."
+      "title": {
+        "zh": "保持文件格式",
+        "en": "Keep ordinary files"
       },
-      "chips": {
-        "zh": ["未审阅即列出", "只提醒不阻断", "定位到具体范围"],
-        "en": ["lists unreviewed", "warns, never blocks", "points to exact ranges"]
+      "body": {
+        "zh": "来源信息放在独立 JSON。",
+        "en": "Keep provenance in a separate JSON file."
       }
     }
   ],
-  "scene": { "kind": "particle-field" },
-  "cta": {
-    "primary": {
-      "label": { "zh": "开始使用", "en": "Get started" },
-      "href": "https://github.com/SuperMarioYL/provmark"
+  "story": {
+    "intro": {
+      "title": {
+        "zh": "解决什么问题",
+        "en": "The task it solves"
+      },
+      "body": {
+        "zh": "Git 记录提交作者，但同一工作区内人和 Agent 可能交替编辑。provmark 根据日志与 diff 的行区间重叠补充来源标记，让审阅者找到需要检查的 Agent 区域；它依赖日志完整性，不会从代码本身判断作者。",
+        "en": "Git records commit authors while people and agents can alternate edits in one working tree. provmark adds provenance based on overlap between logged edits and diff ranges, helping reviewers locate agent-marked regions. It relies on log completeness rather than inferring authorship from code."
+      }
     },
-    "secondary": {
-      "label": { "zh": "查看演示", "en": "See the demo" },
-      "href": "https://github.com/SuperMarioYL/provmark#demo"
-    }
+    "sections": [
+      {
+        "title": {
+          "zh": "从输入到结果",
+          "en": "From input to result"
+        },
+        "body": {
+          "zh": "演示创建两处相隔的文本修改，只为后一处提供合成 Agent 事件，执行 stamp、review 和 mark，再读取侧车核对状态。没有使用实际 Agent 日志。",
+          "en": "The example makes two separated edits and supplies a synthetic agent event for the second, then runs stamp, review and mark and inspects the sidecar. No real agent log is used."
+        },
+        "image": {
+          "light": "/assets/presentation/process-light.svg",
+          "dark": "/assets/presentation/process-dark.svg",
+          "alt": {
+            "zh": "演示创建两处相隔的文本修改，只为后一处提供合成 Agent 事件，执行 stamp、review 和 mark，再读取侧车核对状态。没有使用实际 Agent 日志。",
+            "en": "The example makes two separated edits and supplies a synthetic agent event for the second, then runs stamp, review and mark and inspects the sidecar. No real agent log is used."
+          }
+        }
+      },
+      {
+        "title": {
+          "zh": "工作原理",
+          "en": "How it works"
+        },
+        "body": {
+          "zh": "adapter 读取中性 JSONL 编辑事件，git 模块读取相对 HEAD 的工作区 diff，correlator 每个 hunk 生成一个 Stamp。重叠 Agent 事件的 hunk 标记 agent，其余默认 human。侧车 `.provmark.json` 保存范围、会话与 Reviewed；blame/review 读取该侧车。",
+          "en": "Adapters read neutral JSONL edit events, the Git module reads working-tree diffs against HEAD, and the correlator creates one Stamp per hunk. Hunks overlapping an agent event become agent; others default to human. `.provmark.json` stores ranges, sessions and Reviewed state for blame/review."
+        },
+        "image": {
+          "light": "/assets/presentation/architecture-light.svg",
+          "dark": "/assets/presentation/architecture-dark.svg",
+          "alt": {
+            "zh": "adapter 读取中性 JSONL 编辑事件，git 模块读取相对 HEAD 的工作区 diff，correlator 每个 hunk 生成一个 Stamp。重叠 Agent 事件的 hunk 标记 agent，其余默认 human。侧车 `.provmark.json` 保存范围、会话与 Reviewed；blame/review 读取该侧车。",
+            "en": "Adapters read neutral JSONL edit events, the Git module reads working-tree diffs against HEAD, and the correlator creates one Stamp per hunk. Hunks overlapping an agent event become agent; others default to human. `.provmark.json` stores ranges, sessions and Reviewed state for blame/review."
+          }
+        }
+      },
+      {
+        "title": {
+          "zh": "能力与接入",
+          "en": "Capabilities and integration"
+        },
+        "body": {
+          "zh": "vendor 可选 claude-code、deepseek-coder、qwen-coder，但名称表示注册的解析器，不证明已直接兼容其所有原生会话格式。init 提供 pre-commit 钩子安装入口，当前审阅模式不阻断提交。",
+          "en": "vendor selects claude-code, deepseek-coder or qwen-coder parsers; the names do not prove compatibility with every native session format. init installs a pre-commit hook, while current review behavior does not block commits."
+        },
+        "image": {
+          "light": "/assets/presentation/integrations-light.svg",
+          "dark": "/assets/presentation/integrations-dark.svg",
+          "alt": {
+            "zh": "vendor 可选 claude-code、deepseek-coder、qwen-coder，但名称表示注册的解析器，不证明已直接兼容其所有原生会话格式。init 提供 pre-commit 钩子安装入口，当前审阅模式不阻断提交。",
+            "en": "vendor selects claude-code, deepseek-coder or qwen-coder parsers; the names do not prove compatibility with every native session format. init installs a pre-commit hook, while current review behavior does not block commits."
+          }
+        }
+      }
+    ],
+    "details": [
+      {
+        "title": {
+          "zh": "使用方式",
+          "en": "Usage"
+        },
+        "body": {
+          "zh": "vendor 可选 claude-code、deepseek-coder、qwen-coder，但名称表示注册的解析器，不证明已直接兼容其所有原生会话格式。init 提供 pre-commit 钩子安装入口，当前审阅模式不阻断提交。",
+          "en": "vendor selects claude-code, deepseek-coder or qwen-coder parsers; the names do not prove compatibility with every native session format. init installs a pre-commit hook, while current review behavior does not block commits."
+        }
+      },
+      {
+        "title": {
+          "zh": "配置",
+          "en": "Configuration"
+        },
+        "body": {
+          "zh": "`--dir` 指定仓库，`--from` 指向事件日志，`--vendor` 选择解析器。stamp 检查 HEAD 后的已暂存与未暂存修改；侧车中的 commit_sha 表示 diff 基线。相同区域重新盖章时会尝试保留既有审阅状态。",
+          "en": "`--dir` selects the repository, `--from` selects events and `--vendor` selects a parser. stamp inspects staged and unstaged changes against HEAD; commit_sha in the sidecar identifies the diff base. Restamping attempts to preserve existing review state for unchanged regions."
+        }
+      }
+    ]
   },
-  "footer": {
-    "tag": {
-      "zh": "git blame 给提交者，provmark 给编辑级归属。",
-      "en": "git blame gives the committer; provmark gives edit-level authorship."
+  "demo": {
+    "title": {
+      "zh": "实际运行结果",
+      "en": "Actual demo output"
+    },
+    "note": {
+      "zh": "演示创建两处相隔的文本修改，只为后一处提供合成 Agent 事件，执行 stamp、review 和 mark，再读取侧车核对状态。没有使用实际 Agent 日志。",
+      "en": "The example makes two separated edits and supplies a synthetic agent event for the second, then runs stamp, review and mark and inspects the sidecar. No real agent log is used."
+    },
+    "source": "https://github.com/SuperMarioYL/provmark/blob/main/docs/demo-results.json",
+    "steps": [
+      {
+        "label": {
+          "zh": "盖章并保存审阅",
+          "en": "Stamp and persist review"
+        },
+        "body": {
+          "zh": "两个 hunk 分别标记 human 与 agent；后者的未审阅计数从 1 变为 0。",
+          "en": "Two hunks are marked human and agent; the latter’s unreviewed count changes from 1 to 0."
+        },
+        "command": "python3 examples/presentation-demo.py",
+        "output": "1 unreviewed agent region(s):\n  example.py:13-16  claude-code synthetic-agent\n\nreview with: provmark review --mark <file>:<start>-<end>\nmarked 1 agent region(s) reviewed in example.py:13-16\nno unreviewed agent regions — clean to commit\n{\n  \"human_hunks\": 1,\n  \"agent_hunks\": 1,\n  \"unreviewed_before\": 1,\n  \"unreviewed_after\": 0\n}\n",
+        "image": "/assets/presentation/demo-0-light.svg",
+        "imageDark": "/assets/presentation/demo-0-dark.svg"
+      }
+    ]
+  },
+  "quickstart": {
+    "title": {
+      "zh": "从完整输入开始",
+      "en": "Start with complete input"
+    },
+    "body": {
+      "zh": "需要 Go 1.24+、Git；下面的自包含演示还需要 Python 3。它在临时仓库中创建合成基线提交，不操作当前项目历史。",
+      "en": "Requires Go 1.24+ and Git; the self-contained demo also requires Python 3. It creates a synthetic baseline commit in a temporary repository without changing this project’s history."
+    },
+    "steps": [
+      {
+        "title": {
+          "zh": "安装",
+          "en": "Install"
+        },
+        "code": "git clone https://github.com/SuperMarioYL/provmark.git\ncd provmark\ngo build -o bin/provmark ./cmd/provmark"
+      },
+      {
+        "title": {
+          "zh": "运行自带示例",
+          "en": "Run the supplied example"
+        },
+        "code": "python3 examples/presentation-demo.py"
+      }
+    ]
+  },
+  "limitations": [
+    {
+      "zh": "标记粒度是 diff hunk，可能包含上下文行；不是对每个字符的独立作者证明。",
+      "en": "The unit is a diff hunk, which can include context lines; this is not independent authorship proof for every character."
+    },
+    {
+      "zh": "缺少或无法读取日志时 hunk 默认 human，不能把该标签当作已验证的人类作者。",
+      "en": "Missing or unreadable logs cause hunks to default to human; that label does not establish verified human authorship."
     }
+  ],
+  "footer": {
+    "tag": "0.1.0 · Go 1.24+ / Git · MIT"
   }
 }

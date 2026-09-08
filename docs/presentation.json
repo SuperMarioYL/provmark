@@ -1,0 +1,78 @@
+{
+  "name": "provmark",
+  "tagline": "Connect edit events to code review.",
+  "architecture": {
+    "title": "provmark / data flow",
+    "nodes": [
+      {
+        "title": "JSONL edit events",
+        "detail": "File / range / session"
+      },
+      {
+        "title": "Git diff hunks",
+        "detail": "Working tree against HEAD"
+      },
+      {
+        "title": "Provenance sidecar",
+        "detail": "One stamp per hunk"
+      },
+      {
+        "title": "Blame and review",
+        "detail": "Display and mark reviewed"
+      }
+    ],
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        2,
+        3
+      ]
+    ]
+  },
+  "process": {
+    "title": "provmark / example workflow",
+    "steps": [
+      {
+        "title": "Create mixed edits",
+        "detail": "Two separated hunks"
+      },
+      {
+        "title": "Correlate one event",
+        "detail": "One agent / one human hunk"
+      },
+      {
+        "title": "Review the agent range",
+        "detail": "Persist reviewed state"
+      }
+    ],
+    "result": "The agent-marked hunk changes from unreviewed to reviewed."
+  },
+  "integrations": {
+    "title": "provmark / supported routes",
+    "items": [
+      {
+        "title": "Git diff / blame",
+        "detail": "Repository changes and commit view"
+      },
+      {
+        "title": "Neutral JSONL",
+        "detail": "Supplied edit-event format"
+      },
+      {
+        "title": "JSON sidecar",
+        "detail": "Shareable provenance records"
+      },
+      {
+        "title": "Review command",
+        "detail": "Persistent reviewed flags"
+      }
+    ]
+  }
+}

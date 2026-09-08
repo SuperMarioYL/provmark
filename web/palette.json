@@ -1,0 +1,38 @@
+{
+  "mode": "auto",
+  "id": "e6568b-e77f6a-f6ace2-e11c2a894968",
+  "identity": "https://github.com/supermarioyl/provmark",
+  "primary": "#e6568b",
+  "secondary": "#e77f6a",
+  "highlight": "#f6ace2",
+  "dark": {
+    "bg": "#0a070f",
+    "panel": "#13101a",
+    "code": "#140d17",
+    "ink": "#fdeef9",
+    "muted": "#b29cb2",
+    "line": "#3a182a",
+    "primary": "#e6568b",
+    "secondary": "#e77f6a",
+    "highlight": "#f6ace2",
+    "accent": "#e6568b",
+    "buttonStart": "#c64a78",
+    "buttonEnd": "#b06051",
+    "buttonText": "#ffffff"
+  },
+  "light": {
+    "bg": "#fef9fb",
+    "panel": "#fef7f9",
+    "code": "#fdf3f7",
+    "ink": "#271623",
+    "muted": "#725e75",
+    "line": "#f7cbdc",
+    "primary": "#bd4672",
+    "secondary": "#a75c4d",
+    "highlight": "#8e6383",
+    "accent": "#bd4672",
+    "buttonStart": "#c64a78",
+    "buttonEnd": "#b06051",
+    "buttonText": "#ffffff"
+  }
+}
