@@ -104,6 +104,10 @@
           "alt": {
             "zh": "演示创建两处相隔的文本修改，只为后一处提供合成 Agent 事件，执行 stamp、review 和 mark，再读取侧车核对状态。没有使用实际 Agent 日志。",
             "en": "The example makes two separated edits and supplies a synthetic agent event for the second, then runs stamp, review and mark and inspects the sidecar. No real agent log is used."
+          },
+          "mobile": {
+            "light": "/assets/presentation/process-mobile-light.svg",
+            "dark": "/assets/presentation/process-mobile-dark.svg"
           }
         }
       },
@@ -122,6 +126,10 @@
           "alt": {
             "zh": "adapter 读取中性 JSONL 编辑事件，git 模块读取相对 HEAD 的工作区 diff，correlator 每个 hunk 生成一个 Stamp。重叠 Agent 事件的 hunk 标记 agent，其余默认 human。侧车 `.provmark.json` 保存范围、会话与 Reviewed；blame/review 读取该侧车。",
             "en": "Adapters read neutral JSONL edit events, the Git module reads working-tree diffs against HEAD, and the correlator creates one Stamp per hunk. Hunks overlapping an agent event become agent; others default to human. `.provmark.json` stores ranges, sessions and Reviewed state for blame/review."
+          },
+          "mobile": {
+            "light": "/assets/presentation/architecture-mobile-light.svg",
+            "dark": "/assets/presentation/architecture-mobile-dark.svg"
           }
         }
       },
@@ -140,6 +148,10 @@
           "alt": {
             "zh": "vendor 可选 claude-code、deepseek-coder、qwen-coder，但名称表示注册的解析器，不证明已直接兼容其所有原生会话格式。init 提供 pre-commit 钩子安装入口，当前审阅模式不阻断提交。",
             "en": "vendor selects claude-code, deepseek-coder or qwen-coder parsers; the names do not prove compatibility with every native session format. init installs a pre-commit hook, while current review behavior does not block commits."
+          },
+          "mobile": {
+            "light": "/assets/presentation/integrations-mobile-light.svg",
+            "dark": "/assets/presentation/integrations-mobile-dark.svg"
           }
         }
       }
