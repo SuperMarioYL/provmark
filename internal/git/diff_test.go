@@ -1,6 +1,9 @@
 package git
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -90,6 +93,88 @@ diff --git a/b.go b/b.go
 	}
 	if len(hunks) != 2 || hunks[0].File != "a.go" || hunks[1].File != "b.go" {
 		t.Fatalf("expected two files, got %+v", hunks)
+	}
+}
+
+func TestUntrackedHunks_FullFilePerUntrackedFile(t *testing.T) {
+	// Regression (v0.2.0): git diff never lists untracked files, so an
+	// agent-written brand-new file was invisible to provmark stamp.
+	// UntrackedHunks must surface each untracked file as a full-file hunk.
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	files := map[string]string{
+		"tracked.go":    "a\n",
+		"new.go":        "one\ntwo\n",
+		"no-eol.go":     "x\ny", // final line without newline still counts
+		"sub/nested.go": "n1\nn2\nn3\n",
+		"empty.go":      "",
+	}
+	for name, body := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("ignored.go\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ignored.go"), []byte("i\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitInit(t, dir)
+	runGit(t, dir, "add", "tracked.go", ".gitignore")
+	runGit(t, dir, "commit", "-m", "init")
+
+	hunks, err := UntrackedHunks(dir)
+	if err != nil {
+		t.Fatalf("UntrackedHunks: %v", err)
+	}
+	want := []Hunk{
+		{File: "new.go", StartLine: 1, EndLine: 2},
+		{File: "no-eol.go", StartLine: 1, EndLine: 2},
+		{File: "sub/nested.go", StartLine: 1, EndLine: 3},
+	}
+	if !reflect.DeepEqual(hunks, want) {
+		t.Fatalf("got %+v, want %+v", hunks, want)
+	}
+}
+
+// gitInit creates a throwaway repo with a committable identity.
+func gitInit(t *testing.T, dir string) {
+	t.Helper()
+	runGit(t, dir, "init", "-q")
+	runGit(t, dir, "config", "user.email", "test@example.com")
+	runGit(t, dir, "config", "user.name", "Test")
+}
+
+func runGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	full := append([]string{"-C", dir}, args...)
+	out, err := exec.Command("git", full...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+func TestDiff_EmptyTreeBaseCoversFreshRepo(t *testing.T) {
+	// Regression (v0.2.0): in a repo with no commits, plain `git diff` is
+	// worktree-vs-index and shows nothing for a staged file. Diffing against
+	// the empty tree shows all tracked content as added.
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte("a\nb\nc\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitInit(t, dir)
+	runGit(t, dir, "add", "a.go")
+
+	hunks, err := Diff(dir, EmptyTreeSHA)
+	if err != nil {
+		t.Fatalf("Diff against empty tree: %v", err)
+	}
+	want := []Hunk{{File: "a.go", StartLine: 1, EndLine: 3}}
+	if !reflect.DeepEqual(hunks, want) {
+		t.Fatalf("got %+v, want %+v", hunks, want)
 	}
 }
 

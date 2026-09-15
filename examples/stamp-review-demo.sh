@@ -97,8 +97,11 @@ EOF
 # 3. The agent's session edit-event log (neutral JSONL contract provmark parses).
 #    Only agentFn's region (lines 15-17) is marked agent; humanFn's edit has no
 #    event, so provmark stamps that hunk human. (schema_unverified: real agent
-#    logs differ; this fixture is what an adapter reconciles against.)
-cat > agent-session.jsonl <<EOF
+#    logs differ; this fixture is what an adapter reconciles against.) The log
+#    lives OUTSIDE the fixture repo so untracked-file stamping sees exactly the
+#    two app.go hunks the demo narrates.
+SESSION_LOG="$DEMO-session.jsonl"
+cat > "$SESSION_LOG" <<EOF
 {"file":"app.go","start_line":15,"end_line":17,"session_id":"sess-abc","vendor":"claude-code"}
 EOF
 
@@ -106,7 +109,7 @@ echo
 echo "=========================================================="
 echo " 1. provmark stamp  — correlate agent events with git diff"
 echo "=========================================================="
-"$BIN" stamp --from agent-session.jsonl --dir .
+"$BIN" stamp --from "$SESSION_LOG" --dir .
 
 echo
 echo "=========================================================="
@@ -128,9 +131,9 @@ echo "=========================================================="
 
 echo
 echo "=========================================================="
-echo " 5. provmark review --mark app.go:7-9  — mark it reviewed"
+echo " 5. provmark review --mark app.go:15-17  — mark it reviewed"
 echo "=========================================================="
-"$BIN" review --mark app.go:7-9 --dir .
+"$BIN" review --mark app.go:15-17 --dir .
 
 echo
 echo "=========================================================="

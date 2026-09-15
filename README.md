@@ -9,7 +9,7 @@
 
 **根据提供的 Agent 编辑日志标记 Git diff 区域，在 blame 旁展示来源，并保存审阅状态。**
 
-`v0.1.0` · `Go 1.24+ / Git` · [MIT](LICENSE)
+`v0.2.0` · `Go 1.24+ / Git` · [MIT](LICENSE)
 
 [Website](https://provmark.lei6393.com) · [Demo record](docs/demo-results.json)
 
@@ -104,7 +104,7 @@ vendor 可选 claude-code、deepseek-coder、qwen-coder，但名称表示注册�
 
 ## 配置
 
-`--dir` 指定仓库，`--from` 指向事件日志，`--vendor` 选择解析器。stamp 检查 HEAD 后的已暂存与未暂存修改；侧车中的 commit_sha 表示 diff 基线。相同区域重新盖章时会尝试保留既有审阅状态。
+`--dir` 指定仓库，`--from` 指向事件日志，`--vendor` 选择解析器。stamp 覆盖 HEAD 后的已暂存与未暂存修改、未跟踪的新文件，以及无提交仓库中的已暂存内容；侧车中的 commit_sha 表示 diff 基线。重新盖章时会保留未被新 diff 覆盖区域的既有记录与审阅状态，使已提交区域在 blame 中不丢失归属。
 
 ## 路线图与范围
 

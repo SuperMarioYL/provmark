@@ -9,7 +9,7 @@
 
 **Mark Git diff regions using supplied agent edit logs, display provenance beside blame and persist review state.**
 
-`v0.1.0` · `Go 1.24+ / Git` · [MIT](LICENSE)
+`v0.2.0` · `Go 1.24+ / Git` · [MIT](LICENSE)
 
 [Website](https://provmark.lei6393.com) · [Demo record](docs/demo-results.json)
 
@@ -104,7 +104,7 @@ vendor selects claude-code, deepseek-coder or qwen-coder parsers; the names do n
 
 ## Configuration
 
-`--dir` selects the repository, `--from` selects events and `--vendor` selects a parser. stamp inspects staged and unstaged changes against HEAD; commit_sha in the sidecar identifies the diff base. Restamping attempts to preserve existing review state for unchanged regions.
+`--dir` selects the repository, `--from` selects events and `--vendor` selects a parser. stamp covers staged and unstaged changes against HEAD, untracked new files, and staged content in a repo with no commits yet; commit_sha in the sidecar identifies the diff base. Restamping retains prior regions the new diff does not supersede, together with their review state, so committed regions keep their attribution in blame.
 
 ## Roadmap and scope
 

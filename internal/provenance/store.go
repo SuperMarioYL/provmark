@@ -69,6 +69,32 @@ func MergeReviewState(prev, next *ProvenanceMap) {
 	}
 }
 
+// Accumulate merges a freshly-built map over the prior sidecar state: the
+// fresh stamps (review state already carried by MergeReviewState) come first,
+// then every prior stamp whose region was not re-stamped is retained with its
+// history. Retention is what makes the sidecar a durable provenance record —
+// without it each re-stamp silently discards the regions earlier stamps
+// recorded, and provmark blame regresses to unknown on committed agent lines.
+func Accumulate(prev, fresh *ProvenanceMap) *ProvenanceMap {
+	if fresh == nil {
+		return prev
+	}
+	if prev == nil {
+		return fresh
+	}
+	freshKeys := make(map[string]bool, len(fresh.Stamps))
+	for _, s := range fresh.Stamps {
+		freshKeys[stampKey(s)] = true
+	}
+	out := &ProvenanceMap{CommitSHA: fresh.CommitSHA, Stamps: fresh.Stamps}
+	for _, s := range prev.Stamps {
+		if !freshKeys[stampKey(s)] {
+			out.Stamps = append(out.Stamps, s)
+		}
+	}
+	return out
+}
+
 // stampKey is the stable identity of a stamp across re-stamps: a region plus
 // its author-kind. The same physical lines stamped the same way keep their
 // review history.

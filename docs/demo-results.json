@@ -1,10 +1,10 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scope": "Actual Git diff correlation and persisted review marking over a temporary repository with explicit synthetic edit events. No real agent logs or cryptographic authorship proof.",
   "inputs": [
     {
       "path": "examples/presentation-demo.py",
-      "sha256": "c7973c557cb063db56fc798a7f34cefb48b78609875712cd7837efa3cc54c7dd"
+      "sha256": "48713c1366798d6638b44171cd8a7786e79eaf8f3fdb2a1c746661dc517becc5"
     }
   ],
   "steps": [

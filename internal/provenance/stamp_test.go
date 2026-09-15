@@ -178,6 +178,60 @@ func TestStampKey_DistinguishesByAuthorKind(t *testing.T) {
 	}
 }
 
+func TestAccumulate_RetainsPriorRegionsNotReStamped(t *testing.T) {
+	// Regression (v0.2.0): a re-stamp used to replace the whole sidecar, so a
+	// committed agent region vanished and provmark blame regressed to "-".
+	// Accumulate must retain prior stamps the fresh diff does not supersede.
+	prev := &ProvenanceMap{
+		CommitSHA: "v1",
+		Stamps: []Stamp{
+			{Region: Region{File: "a.go", Start: 1, End: 3}, AuthorKind: AuthorAgent, SessionID: "s1", AgentVendor: "claude-code", Reviewed: true, StampedAt: time.Now()},
+		},
+	}
+	fresh := &ProvenanceMap{
+		CommitSHA: "v2",
+		Stamps: []Stamp{
+			{Region: Region{File: "b.go", Start: 1, End: 2}, AuthorKind: AuthorAgent, SessionID: "s2", AgentVendor: "claude-code", Reviewed: false, StampedAt: time.Now()},
+		},
+	}
+	got := Accumulate(prev, fresh)
+	if got.CommitSHA != "v2" {
+		t.Fatalf("accumulated map should take the fresh CommitSHA, got %q", got.CommitSHA)
+	}
+	if len(got.Stamps) != 2 {
+		t.Fatalf("expected fresh + retained prior stamp, got %+v", got.Stamps)
+	}
+	if got.Stamps[0].Region.File != "b.go" || got.Stamps[1].Region.File != "a.go" {
+		t.Fatalf("fresh stamps should come first, then retained: %+v", got.Stamps)
+	}
+	if !got.Stamps[1].Reviewed || got.Stamps[1].SessionID != "s1" {
+		t.Fatalf("retained prior stamp should keep its history: %+v", got.Stamps[1])
+	}
+}
+
+func TestAccumulate_FreshSupersedesSameKey(t *testing.T) {
+	prev := &ProvenanceMap{CommitSHA: "v1", Stamps: []Stamp{
+		{Region: Region{File: "a.go", Start: 1, End: 3}, AuthorKind: AuthorAgent, Reviewed: true, StampedAt: time.Now()},
+	}}
+	fresh := &ProvenanceMap{CommitSHA: "v2", Stamps: []Stamp{
+		{Region: Region{File: "a.go", Start: 1, End: 3}, AuthorKind: AuthorAgent, Reviewed: false, StampedAt: time.Now()},
+	}}
+	got := Accumulate(prev, fresh)
+	if len(got.Stamps) != 1 {
+		t.Fatalf("same-key fresh stamp must supersede prior, got %+v", got.Stamps)
+	}
+}
+
+func TestAccumulate_NilInputs(t *testing.T) {
+	pm := &ProvenanceMap{CommitSHA: "x"}
+	if got := Accumulate(nil, pm); got != pm {
+		t.Fatalf("nil prev should return fresh")
+	}
+	if got := Accumulate(pm, nil); got != pm {
+		t.Fatalf("nil fresh should return prev")
+	}
+}
+
 func TestSidecarPath(t *testing.T) {
 	if filepath.Base(SidecarName) != ".provmark.json" {
 		t.Fatalf("unexpected sidecar name %q", SidecarName)

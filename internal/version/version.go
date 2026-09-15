@@ -5,4 +5,4 @@ package version
 
 // Version is the semantic version of this provmark build. Bump it here and in
 // the root VERSION file together when cutting a release.
-const Version = "0.1.0"
+const Version = "0.2.0"

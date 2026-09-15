@@ -15,8 +15,11 @@ with TemporaryDirectory(prefix='provmark-demo-') as folder:
     cmd('git','add','example.py')
     cmd('git','-c','commit.gpgsign=false','-c','core.hooksPath=/dev/null','commit','-qm','synthetic baseline')
     (root/'example.py').write_text(original.replace('first = 1','first = 2').replace('last = 1','last = 2'))
-    (root/'events.jsonl').write_text(json.dumps({'file':'example.py','start_line':16,'end_line':16,'session_id':'synthetic-agent','vendor':'claude-code'})+'\n')
-    cmd(str(binary),'stamp','--from','events.jsonl','--dir','.')
+    # events live outside the fixture repo so untracked-file stamping counts
+    # only the two example.py hunks this demo means to show
+    events=root.parent/(root.name+'-events.jsonl')
+    events.write_text(json.dumps({'file':'example.py','start_line':16,'end_line':16,'session_id':'synthetic-agent','vendor':'claude-code'})+'\n')
+    cmd(str(binary),'stamp','--from',str(events),'--dir','.')
     before=json.loads((root/'.provmark.json').read_text())
     agent=next(s for s in before['stamps'] if s['author_kind']=='agent')
     region=agent['region'];target=f"{region['file']}:{region['start']}-{region['end']}"

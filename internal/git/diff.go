@@ -11,7 +11,9 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -155,6 +157,12 @@ func splitUnquoted(s string) []string {
 	return parts
 }
 
+// EmptyTreeSHA is git's well-known empty-tree object hash. Diffing against it
+// shows every tracked file as newly added, which is the correct "everything
+// changed" base for a repo that has no commits yet — plain `git diff` there
+// compares worktree to index and misses staged files entirely.
+const EmptyTreeSHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
 // Diff runs `git diff` with the given extra args in dir and returns parsed
 // hunks. Pass "HEAD" to diff the working tree against HEAD (staged + unstaged),
 // which is what `provmark stamp` correlates against.
@@ -165,6 +173,47 @@ func Diff(dir string, args ...string) ([]Hunk, error) {
 		return nil, fmt.Errorf("git: run diff in %q: %w", dir, err)
 	}
 	return ParseDiff(string(out))
+}
+
+// UntrackedHunks returns one full-file hunk (lines 1..N) for every untracked
+// file in dir, excluding ignored files. `git diff` never lists untracked
+// files, yet a brand-new file is the most common agent output; these hunks
+// let the correlator stamp new files like any other changed region. Files
+// that are empty or unreadable yield no hunk — there are no lines to stamp.
+func UntrackedHunks(dir string) ([]Hunk, error) {
+	out, err := exec.Command("git", "-C", dir, "ls-files", "--others", "--exclude-standard", "-z").Output()
+	if err != nil {
+		return nil, fmt.Errorf("git: list untracked files in %q: %w", dir, err)
+	}
+	var hunks []Hunk
+	for _, name := range strings.Split(strings.TrimRight(string(out), "\x00"), "\x00") {
+		if name == "" {
+			continue
+		}
+		n, err := lineCount(filepath.Join(dir, name))
+		if err != nil || n == 0 {
+			continue
+		}
+		hunks = append(hunks, Hunk{File: name, StartLine: 1, EndLine: n})
+	}
+	return hunks, nil
+}
+
+// lineCount counts lines the way git's diff side does: newline-terminated
+// lines, plus one for a final unterminated line.
+func lineCount(path string) (int, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+	if len(data) == 0 {
+		return 0, nil
+	}
+	n := bytes.Count(data, []byte{'\n'})
+	if data[len(data)-1] != '\n' {
+		n++
+	}
+	return n, nil
 }
 
 // HeadSHA returns the short SHA of HEAD in dir, or "" if the repo has no

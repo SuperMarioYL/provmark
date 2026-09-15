@@ -3,9 +3,10 @@
 // git blame reports under one committer, persists the split as a committed
 // `.provmark.json` sidecar, and flags unreviewed agent regions.
 //
-// v0.1 (m1) ships `stamp`, `blame`, `review` and a stub `init`. The
-// pre-commit-hook warning is m2; the before/after demo cast + bilingual launch
-// is m3 — both are stubs in this release.
+// v0.1 shipped `stamp`, `blame`, `review` and a stub `init`; v0.2 made
+// re-stamps accumulate the sidecar (committed regions keep their attribution)
+// and taught stamp to see untracked new files and fresh repos. The
+// pre-commit hook remains a non-blocking stub.
 package main
 
 import (
@@ -138,33 +139,50 @@ func runStamp(dir, from, vendor string, stdout, stderr io.Writer) error {
 		events = evs
 	}
 
-	// 2. Diff the working tree against HEAD (staged + unstaged). If the repo
-	//    has no commits yet, diff against the index so a fresh repo still works.
+	// 2. Diff the working tree against HEAD (staged + unstaged). In a repo
+	//    with no commits yet, diff against the git empty tree instead — plain
+	//    `git diff` there is worktree-vs-index and misses staged files.
 	diffArgs := []string{"--no-color"}
 	if sha := git.HeadSHA(absDir); sha != "" {
 		diffArgs = append(diffArgs, "HEAD")
+	} else {
+		diffArgs = append(diffArgs, git.EmptyTreeSHA)
 	}
 	hunks, err := git.Diff(absDir, diffArgs...)
 	if err != nil {
 		return fmt.Errorf("read git diff: %w", err)
+	}
+	// Untracked files never appear in a git diff, so enumerate them as
+	// full-file hunks; the sidecar itself is skipped — stamping must not
+	// record the provenance file as an edit.
+	untracked, err := git.UntrackedHunks(absDir)
+	if err != nil {
+		return fmt.Errorf("list untracked files: %w", err)
+	}
+	for _, h := range untracked {
+		if h.File != provenance.SidecarName {
+			hunks = append(hunks, h)
+		}
 	}
 	if len(hunks) == 0 {
 		fmt.Fprintln(stderr, "no uncommitted hunks to stamp; nothing to do")
 		return nil
 	}
 
-	// 3. Correlate, preserve prior review decisions for unchanged regions, persist.
+	// 3. Correlate, carry prior review decisions for unchanged regions,
+	//    retain prior stamps the fresh diff does not supersede, persist.
 	pm := provenance.Build(git.HeadSHA(absDir), hunks, events)
+	agentCount, humanCount := countByKind(pm)
 	if prev, err := provenance.Load(absDir); err == nil {
 		provenance.MergeReviewState(prev, pm)
+		pm = provenance.Accumulate(prev, pm)
 	}
 	if err := provenance.Save(absDir, pm); err != nil {
 		return err
 	}
-	agentCount, humanCount := countByKind(pm)
-	fmt.Fprintf(stdout, "stamped %d hunk(s) into %s\n", len(pm.Stamps), provenance.SidecarName)
-	fmt.Fprintf(stdout, "  agent: %d   human: %d   (diff base %s)\n",
-		agentCount, humanCount, shaOrWorking(pm.CommitSHA))
+	fmt.Fprintf(stdout, "stamped %d hunk(s) into %s\n", len(hunks), provenance.SidecarName)
+	fmt.Fprintf(stdout, "  agent: %d   human: %d   (%d region(s) recorded, diff base %s)\n",
+		agentCount, humanCount, len(pm.Stamps), shaOrWorking(pm.CommitSHA))
 	return nil
 }
 
