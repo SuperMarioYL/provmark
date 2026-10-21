@@ -75,6 +75,16 @@
         "zh": "来源信息放在独立 JSON。",
         "en": "Keep provenance in a separate JSON file."
       }
+    },
+    {
+      "title": {
+        "zh": "提交前提醒",
+        "en": "Warn before commit"
+      },
+      "body": {
+        "zh": "pre-commit 钩子列出未审阅的 agent 区域，从不阻断提交。",
+        "en": "The pre-commit hook lists unreviewed agent regions and never blocks the commit."
+      }
     }
   ],
   "story": {
@@ -234,8 +244,8 @@
   },
   "limitations": [
     {
-      "zh": "标记粒度是 diff hunk，可能包含上下文行；不是对每个字符的独立作者证明。",
-      "en": "The unit is a diff hunk, which can include context lines; this is not independent authorship proof for every character."
+      "zh": "标记粒度是 diff hunk（零上下文，恰好为改动的行）；不是对每个字符的独立作者证明。",
+      "en": "The unit is a diff hunk (zero context, exactly the changed lines); this is not independent authorship proof for every character."
     },
     {
       "zh": "缺少或无法读取日志时 hunk 默认 human，不能把该标签当作已验证的人类作者。",
