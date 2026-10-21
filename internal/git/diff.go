@@ -166,8 +166,14 @@ const EmptyTreeSHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 // Diff runs `git diff` with the given extra args in dir and returns parsed
 // hunks. Pass "HEAD" to diff the working tree against HEAD (staged + unstaged),
 // which is what `provmark stamp` correlates against.
+//
+// Zero context (-U0) is deliberate: with git's default 3 lines of context a
+// hunk's new-side range includes unchanged lines, and since the correlator
+// stamps a whole hunk with the matched author-kind those untouched lines would
+// inherit the agent label — a one-line agent edit would report the surrounding
+// human-typed lines as agent. -U0 makes a hunk exactly the changed lines.
 func Diff(dir string, args ...string) ([]Hunk, error) {
-	cmdArgs := append([]string{"-C", dir, "diff", "--no-color"}, args...)
+	cmdArgs := append([]string{"-C", dir, "diff", "--no-color", "-U0"}, args...)
 	out, err := exec.Command("git", cmdArgs...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("git: run diff in %q: %w", dir, err)

@@ -43,7 +43,8 @@ func humanFn() string {
 }
 
 // --- separator: keeps the human and agent edits in separate diff hunks ---
-// (git joins hunks whose gap is <= 6 unchanged lines; this block is wider)
+// (provmark diffs with -U0, so each change is its own hunk; this block just
+//  keeps the fixture readable)
 // 2
 // 3
 // 4
@@ -64,10 +65,10 @@ git add app.go
 git commit -qm "baseline"
 
 # 2. Mixed session: a HUMAN edits humanFn (line 4), an AGENT edits agentFn
-#    (line 16). The two changes are ~11 unchanged lines apart, so `git diff`
-#    produces two hunks — hunk 1 (human, ~lines 1-7) and hunk 2 (agent, ~lines
-#    13-19). git blame collapses both into one committer ("You"); provmark
-#    splits them by author-kind — the field git's data model lacks.
+#    (line 17). The two changes are ~12 unchanged lines apart, so `git diff -U0`
+#    produces two hunks — hunk 1 (human, line 4) and hunk 2 (agent, line 17).
+#    git blame collapses both into one committer ("You"); provmark splits them
+#    by author-kind — the field git's data model lacks.
 cat > app.go <<'EOF'
 package main
 
@@ -76,7 +77,8 @@ func humanFn() string {
 }
 
 // --- separator: keeps the human and agent edits in separate diff hunks ---
-// (git joins hunks whose gap is <= 6 unchanged lines; this block is wider)
+// (provmark diffs with -U0, so each change is its own hunk; this block just
+//  keeps the fixture readable)
 // 2
 // 3
 // 4
@@ -95,7 +97,8 @@ func main() {
 EOF
 
 # 3. The agent's session edit-event log (neutral JSONL contract provmark parses).
-#    Only agentFn's region (lines 15-17) is marked agent; humanFn's edit has no
+#    Its range (lines 15-17) overlaps only the changed line 17, so with the
+#    zero-context diff exactly line 17 is marked agent; humanFn's edit has no
 #    event, so provmark stamps that hunk human. (schema_unverified: real agent
 #    logs differ; this fixture is what an adapter reconciles against.) The log
 #    lives OUTSIDE the fixture repo so untracked-file stamping sees exactly the

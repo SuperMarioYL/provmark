@@ -1,13 +1,21 @@
 #!/usr/bin/env sh
-# provmark pre-commit hook — v0.1 stub
+# provmark pre-commit hook template.
 #
-# This is the committed hook TEMPLATE. `provmark init` copies it into
-# .git/hooks/pre-commit. v0.1 ships a non-blocking no-op: the review-gate
-# warning that surfaces unreviewed agent regions (without blocking the commit)
-# is m2 scope and lands here when m2 ships:
+# `provmark init` installs a hook based on this script into
+# .git/hooks/pre-commit, baking in the absolute path of the provmark binary it
+# was run from (falling back to a provmark on PATH if that binary later moves).
 #
-#   provmark review --dir "$PWD" || true   # warns, never blocks (v0.1 contract)
+# The hook is deliberately non-blocking: it prints the unreviewed agent regions
+# to stderr and always exits 0, so a commit is never refused — a blocking gate is
+# out of scope for provmark. Silence it by reviewing the regions it names:
 #
-# m2 implementation will run the review-gate and print the unreviewed agent
-# regions to stderr, then exit 0 regardless — provmark never blocks a commit.
+#   provmark review --mark <file>:<start>-<end>
+#
+# Git runs hooks from the root of the working tree, so --dir . is the repository
+# being committed.
+
+PROVMARK="$(command -v provmark 2>/dev/null || true)"
+if [ -n "$PROVMARK" ]; then
+  "$PROVMARK" review --quiet --dir . >&2 || true
+fi
 exit 0

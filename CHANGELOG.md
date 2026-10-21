@@ -4,6 +4,39 @@ All notable changes to provmark are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-10-22
+
+### Fixed
+
+- The installed pre-commit hook now **actually warns** on unreviewed agent
+  regions. It was still the v0.1 `exit 0` stub, so committing agent-written code
+  printed nothing even though the commit-time warning was already promised.
+  `provmark init` now bakes the provmark binary path into the hook (falling back
+  to a `provmark` on PATH) and runs `provmark review --quiet`; the hook prints
+  the unreviewed regions to stderr and still always exits 0, so it warns without
+  ever blocking a commit. `review` gains `--quiet` to stay silent on a clean
+  tree.
+- **Diff hunks are now exactly the changed lines.** `provmark stamp` used git's
+  default three lines of diff context, so a one-line agent edit produced a hunk
+  spanning seven lines and the correlator stamped the surrounding human-typed
+  lines as agent — `blame` and `review` both reported human lines as agent.
+  Stamping now diffs with zero context (`-U0`).
+- **Stamps the fresh diff re-stamped are dropped.** A prior agent region whose
+  whole range was re-stamped (for example because a human rewrote that line
+  themselves) used to survive in the sidecar, so `provmark blame` said `human`
+  while `provmark review` still listed the region as unreviewed agent. A prior
+  stamp fully contained in a fresh stamp of the same file is now superseded.
+- **The sidecar no longer records itself as an edit.** The provenance file was
+  excluded only from untracked enumeration, so once `.provmark.json` was
+  committed and then modified by an earlier stamp, the next stamp recorded the
+  sidecar's own lines as changed regions.
+
+### Added
+
+- A version-lockstep test (`internal/version`) asserting `VERSION`,
+  `internal/version/version.go`, `web/site.json`, both READMEs and the CHANGELOG
+  all carry the same version, since nothing else fails when they drift.
+
 ## [0.2.0] - 2026-09-16
 
 ### Fixed

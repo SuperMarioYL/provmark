@@ -5,8 +5,10 @@
 //
 // v0.1 shipped `stamp`, `blame`, `review` and a stub `init`; v0.2 made
 // re-stamps accumulate the sidecar (committed regions keep their attribution)
-// and taught stamp to see untracked new files and fresh repos. The
-// pre-commit hook remains a non-blocking stub.
+// and taught stamp to see untracked new files and fresh repos. v0.3 gives
+// `init` a real non-blocking hook that warns on unreviewed agent regions at
+// commit time, diffs with zero context so a hunk is exactly the changed lines,
+// and drops stamps the fresh diff re-stamped.
 package main
 
 import (
@@ -80,9 +82,10 @@ func newBlameCmd() *cobra.Command {
 	return c
 }
 
-// newReviewCmd: provmark review [--mark <file:start-end>] [--dir .]
+// newReviewCmd: provmark review [--mark <file:start-end>] [--quiet] [--dir .]
 func newReviewCmd() *cobra.Command {
 	var markTarget, dir string
+	var quiet bool
 	c := &cobra.Command{
 		Use:   "review",
 		Short: "list unreviewed agent regions, or mark one reviewed with --mark",
@@ -90,22 +93,30 @@ func newReviewCmd() *cobra.Command {
 			if markTarget != "" {
 				return runMark(dir, markTarget, cmd.OutOrStdout())
 			}
-			return runReview(dir, cmd.OutOrStdout())
+			return runReview(dir, quiet, cmd.OutOrStdout())
 		},
 	}
 	c.Flags().StringVar(&markTarget, "mark", "", "mark <file>:<start>-<end> reviewed (agent regions only)")
+	c.Flags().BoolVar(&quiet, "quiet", false, "suppress the all-clean message (used by the pre-commit hook)")
 	c.Flags().StringVar(&dir, "dir", ".", "repository root holding the sidecar")
 	return c
 }
 
-// newInitCmd: provmark init [--dir .] — installs the (m2-stub) pre-commit hook.
+// newInitCmd: provmark init [--dir .] — installs the pre-commit review-gate hook.
 func newInitCmd() *cobra.Command {
 	var dir string
 	c := &cobra.Command{
 		Use:   "init",
-		Short: "install the pre-commit hook (v0.1 ships a non-blocking stub)",
+		Short: "install the pre-commit hook that warns on unreviewed agent regions",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInit(dir, cmd.OutOrStdout())
+			// Bake the running binary's path into the hook so a commit-time
+			// warning works even when provmark is not on PATH; the hook falls
+			// back to `command -v provmark` if the binary later moves.
+			exe, err := os.Executable()
+			if err != nil {
+				exe = ""
+			}
+			return runInit(dir, exe, cmd.OutOrStdout())
 		},
 	}
 	c.Flags().StringVar(&dir, "dir", ".", "repository root to initialise")
@@ -142,7 +153,7 @@ func runStamp(dir, from, vendor string, stdout, stderr io.Writer) error {
 	// 2. Diff the working tree against HEAD (staged + unstaged). In a repo
 	//    with no commits yet, diff against the git empty tree instead — plain
 	//    `git diff` there is worktree-vs-index and misses staged files.
-	diffArgs := []string{"--no-color"}
+	var diffArgs []string
 	if sha := git.HeadSHA(absDir); sha != "" {
 		diffArgs = append(diffArgs, "HEAD")
 	} else {
@@ -153,17 +164,13 @@ func runStamp(dir, from, vendor string, stdout, stderr io.Writer) error {
 		return fmt.Errorf("read git diff: %w", err)
 	}
 	// Untracked files never appear in a git diff, so enumerate them as
-	// full-file hunks; the sidecar itself is skipped — stamping must not
-	// record the provenance file as an edit.
+	// full-file hunks. The sidecar itself is then dropped from both paths —
+	// stamping must not record the provenance file as an edit.
 	untracked, err := git.UntrackedHunks(absDir)
 	if err != nil {
 		return fmt.Errorf("list untracked files: %w", err)
 	}
-	for _, h := range untracked {
-		if h.File != provenance.SidecarName {
-			hunks = append(hunks, h)
-		}
-	}
+	hunks = withoutSidecar(append(hunks, untracked...))
 	if len(hunks) == 0 {
 		fmt.Fprintln(stderr, "no uncommitted hunks to stamp; nothing to do")
 		return nil
@@ -204,7 +211,10 @@ func runBlame(dir, file string, stdout io.Writer) error {
 	return nil
 }
 
-func runReview(dir string, stdout io.Writer) error {
+// runReview lists the unreviewed agent regions. quiet suppresses the all-clean
+// message so the pre-commit hook stays silent on a repo with nothing to flag;
+// the unreviewed list itself is always printed.
+func runReview(dir string, quiet bool, stdout io.Writer) error {
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		return err
@@ -215,7 +225,9 @@ func runReview(dir string, stdout io.Writer) error {
 	}
 	unreviewed := review.Unreviewed(pm)
 	if len(unreviewed) == 0 {
-		fmt.Fprintln(stdout, "no unreviewed agent regions — clean to commit")
+		if !quiet {
+			fmt.Fprintln(stdout, "no unreviewed agent regions — clean to commit")
+		}
 		return nil
 	}
 	fmt.Fprintf(stdout, "%d unreviewed agent region(s):\n", len(unreviewed))
@@ -243,7 +255,9 @@ func runMark(dir, target string, stdout io.Writer) error {
 	return nil
 }
 
-func runInit(dir string, stdout io.Writer) error {
+// runInit installs the pre-commit hook, baking provmarkPath into it so the
+// commit-time review warning works without provmark on PATH.
+func runInit(dir, provmarkPath string, stdout io.Writer) error {
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		return err
@@ -251,13 +265,26 @@ func runInit(dir string, stdout io.Writer) error {
 	if err := ensureGit(absDir); err != nil {
 		return err
 	}
-	hookPath, err := installPreCommitHook(absDir)
+	hookPath, err := installPreCommitHook(absDir, provmarkPath)
 	if err != nil {
 		return err
 	}
 	fmt.Fprintf(stdout, "installed pre-commit hook at %s\n", hookPath)
-	fmt.Fprintln(stdout, "note: v0.1 ships a non-blocking stub; the review-gate warning is m2 scope")
+	fmt.Fprintln(stdout, "note: the hook warns about unreviewed agent regions and never blocks a commit")
 	return nil
+}
+
+// withoutSidecar drops hunks for the provenance sidecar itself. The sidecar is
+// untracked on the first stamp but becomes an ordinary tracked file afterwards,
+// so a re-stamp would otherwise record `.provmark.json` as an edited region.
+func withoutSidecar(hunks []git.Hunk) []git.Hunk {
+	out := make([]git.Hunk, 0, len(hunks))
+	for _, h := range hunks {
+		if h.File != provenance.SidecarName {
+			out = append(out, h)
+		}
+	}
+	return out
 }
 
 // ensureGit verifies dir is inside a git repo and returns a clear error otherwise.

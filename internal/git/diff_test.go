@@ -140,6 +140,63 @@ func TestUntrackedHunks_FullFilePerUntrackedFile(t *testing.T) {
 	}
 }
 
+func TestDiff_ZeroContextCoversOnlyChangedLines(t *testing.T) {
+	// Regression (v0.3.0): Diff used git's default 3 lines of context, so a
+	// hunk's new-side range included unchanged lines on both sides. Correlate
+	// stamps the whole hunk with the matched author-kind, so one agent line
+	// turned into a region covering surrounding human-typed lines — blame and
+	// review then reported those human lines as agent. Diff must ask git for
+	// zero context so a hunk is exactly the changed lines.
+	dir := t.TempDir()
+	baseline := "h1\nh2\nh3\nh4\nh5\nh6\nh7\nh8\n"
+	if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte(baseline), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitInit(t, dir)
+	runGit(t, dir, "add", "a.go")
+	runGit(t, dir, "commit", "-q", "-m", "init")
+	// Only line 5 changes.
+	if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte("h1\nh2\nh3\nh4\nAGENT5\nh6\nh7\nh8\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	hunks, err := Diff(dir, "HEAD")
+	if err != nil {
+		t.Fatalf("Diff: %v", err)
+	}
+	want := []Hunk{{File: "a.go", StartLine: 5, EndLine: 5}}
+	if !reflect.DeepEqual(hunks, want) {
+		t.Fatalf("got %+v, want %+v (context lines must not be stamped)", hunks, want)
+	}
+}
+
+func TestDiff_ZeroContextSeparateHunksForDistantEdits(t *testing.T) {
+	// The zero-context flag must not merge two separated edits into one hunk:
+	// the demo's human-vs-agent split depends on git emitting two hunks.
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte("a\nb\nc\nd\ne\nf\ng\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitInit(t, dir)
+	runGit(t, dir, "add", "a.go")
+	runGit(t, dir, "commit", "-q", "-m", "init")
+	if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte("a\nB\nc\nd\ne\nF\ng\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	hunks, err := Diff(dir, "HEAD")
+	if err != nil {
+		t.Fatalf("Diff: %v", err)
+	}
+	want := []Hunk{
+		{File: "a.go", StartLine: 2, EndLine: 2},
+		{File: "a.go", StartLine: 6, EndLine: 6},
+	}
+	if !reflect.DeepEqual(hunks, want) {
+		t.Fatalf("got %+v, want %+v", hunks, want)
+	}
+}
+
 // gitInit creates a throwaway repo with a committable identity.
 func gitInit(t *testing.T, dir string) {
 	t.Helper()

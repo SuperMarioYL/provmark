@@ -9,7 +9,7 @@
 
 **根据提供的 Agent 编辑日志标记 Git diff 区域，在 blame 旁展示来源，并保存审阅状态。**
 
-`v0.2.0` · `Go 1.24+ / Git` · [MIT](LICENSE)
+`v0.3.0` · `Go 1.24+ / Git` · [MIT](LICENSE)
 
 [Website](https://provmark.lei6393.com) · [Demo record](docs/demo-results.json)
 
@@ -76,10 +76,10 @@ python3 examples/presentation-demo.py
 ```text
 $ python3 examples/presentation-demo.py
 1 unreviewed agent region(s):
-  example.py:13-16  claude-code synthetic-agent
+  example.py:16-16  claude-code synthetic-agent
 
 review with: provmark review --mark <file>:<start>-<end>
-marked 1 agent region(s) reviewed in example.py:13-16
+marked 1 agent region(s) reviewed in example.py:16-16
 no unreviewed agent regions — clean to commit
 {
   "human_hunks": 1,
@@ -95,22 +95,22 @@ no unreviewed agent regions — clean to commit
   <source media="(max-width: 640px) and (prefers-color-scheme: dark)" srcset="assets/presentation/integrations-mobile-dark.svg">
   <source media="(max-width: 640px)" srcset="assets/presentation/integrations-mobile-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="assets/presentation/integrations-dark.svg">
-  <img src="assets/presentation/integrations-light.svg" width="1000" alt="vendor 可选 claude-code、deepseek-coder、qwen-coder，但名称表示注册的解析器，不证明已直接兼容其所有原生会话格式。init 提供 pre-commit 钩子安装入口，当前审阅模式不阻断提交。">
+  <img src="assets/presentation/integrations-light.svg" width="1000" alt="vendor 可选 claude-code、deepseek-coder、qwen-coder，但名称表示注册的解析器，不证明已直接兼容其所有原生会话格式。init 安装 pre-commit 钩子：提交时列出未审阅的 agent 区域，且从不阻断提交。">
 </picture>
 
-vendor 可选 claude-code、deepseek-coder、qwen-coder，但名称表示注册的解析器，不证明已直接兼容其所有原生会话格式。init 提供 pre-commit 钩子安装入口，当前审阅模式不阻断提交。
+vendor 可选 claude-code、deepseek-coder、qwen-coder，但名称表示注册的解析器，不证明已直接兼容其所有原生会话格式。init 安装 pre-commit 钩子：提交时列出未审阅的 agent 区域，且从不阻断提交。
 
 
 
 ## 配置
 
-`--dir` 指定仓库，`--from` 指向事件日志，`--vendor` 选择解析器。stamp 覆盖 HEAD 后的已暂存与未暂存修改、未跟踪的新文件，以及无提交仓库中的已暂存内容；侧车中的 commit_sha 表示 diff 基线。重新盖章时会保留未被新 diff 覆盖区域的既有记录与审阅状态，使已提交区域在 blame 中不丢失归属。
+`--dir` 指定仓库，`--from` 指向事件日志，`--vendor` 选择解析器。stamp 覆盖 HEAD 后的已暂存与未暂存修改、未跟踪的新文件，以及无提交仓库中的已暂存内容；侧车中的 commit_sha 表示 diff 基线。重新盖章时会保留未被新 diff 覆盖区域的既有记录与审阅状态，使已提交区域在 blame 中不丢失归属；被新 diff 完整重盖的区域则被替换。
 
 ## 路线图与范围
 
-当前可盖章、展示 blame 并持久化审阅标记。更强的原生日志适配与提交时提示仍需继续验证；密码学来源证明和阻断提交不在当前能力内。
+当前可盖章、展示 blame、持久化审阅标记，并在提交时提示未审阅的 agent 区域。更强的原生日志适配仍需继续验证；密码学来源证明和阻断提交不在当前能力内。
 
-- 标记粒度是 diff hunk，可能包含上下文行；不是对每个字符的独立作者证明。
+- 标记粒度是 diff hunk（零上下文，恰好为改动的行）；不是对每个字符的独立作者证明。
 - 缺少或无法读取日志时 hunk 默认 human，不能把该标签当作已验证的人类作者。
 
 ![Terminal recording](assets/demo.gif) · [Recording script](docs/demo.tape)

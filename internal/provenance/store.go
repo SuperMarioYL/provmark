@@ -71,10 +71,17 @@ func MergeReviewState(prev, next *ProvenanceMap) {
 
 // Accumulate merges a freshly-built map over the prior sidecar state: the
 // fresh stamps (review state already carried by MergeReviewState) come first,
-// then every prior stamp whose region was not re-stamped is retained with its
+// then every prior stamp the fresh diff did not re-stamp is retained with its
 // history. Retention is what makes the sidecar a durable provenance record —
 // without it each re-stamp silently discards the regions earlier stamps
 // recorded, and provmark blame regresses to unknown on committed agent lines.
+//
+// A prior stamp is superseded (and dropped) when the fresh diff re-stamped the
+// whole region it covers: either an identical region+kind stamp exists, or a
+// fresh stamp of the same file fully contains its region. Without the second
+// rule an agent stamp whose lines a human has since rewritten stayed in the
+// sidecar as an unreviewed agent region — blame said human while review still
+// flagged it, so the two views of one sidecar disagreed.
 func Accumulate(prev, fresh *ProvenanceMap) *ProvenanceMap {
 	if fresh == nil {
 		return prev
@@ -88,11 +95,29 @@ func Accumulate(prev, fresh *ProvenanceMap) *ProvenanceMap {
 	}
 	out := &ProvenanceMap{CommitSHA: fresh.CommitSHA, Stamps: fresh.Stamps}
 	for _, s := range prev.Stamps {
-		if !freshKeys[stampKey(s)] {
-			out.Stamps = append(out.Stamps, s)
+		if freshKeys[stampKey(s)] || reStampedByFresh(s, fresh.Stamps) {
+			continue
 		}
+		out.Stamps = append(out.Stamps, s)
 	}
 	return out
+}
+
+// reStampedByFresh reports whether a fresh stamp of the same file fully covers
+// s.Region. The fresh diff then re-stamped that whole region, so the prior
+// record no longer describes the current lines and is superseded. A region the
+// fresh diff only partly overlaps is retained: it still holds lines the fresh
+// diff did not touch.
+func reStampedByFresh(s Stamp, fresh []Stamp) bool {
+	for _, f := range fresh {
+		if f.Region.File != s.Region.File {
+			continue
+		}
+		if f.Region.Start <= s.Region.Start && s.Region.End <= f.Region.End {
+			return true
+		}
+	}
+	return false
 }
 
 // stampKey is the stable identity of a stamp across re-stamps: a region plus

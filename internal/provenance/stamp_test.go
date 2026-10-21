@@ -222,6 +222,50 @@ func TestAccumulate_FreshSupersedesSameKey(t *testing.T) {
 	}
 }
 
+func TestAccumulate_DropsPriorStampFullyReStampedAsHuman(t *testing.T) {
+	// Regression (v0.3.0): a prior agent stamp survived a re-stamp that recorded
+	// the same lines as human, because retention keyed only on an identical
+	// region+kind key. `blame` then said human (the fresh stamp shadows the old
+	// one) while `review` still listed the region as unreviewed agent — two views
+	// of one sidecar disagreeing. A prior stamp fully contained in a fresh stamp
+	// of the same file has been re-stamped and must be dropped.
+	prev := &ProvenanceMap{CommitSHA: "v1", Stamps: []Stamp{
+		{Region: Region{File: "a.go", Start: 2, End: 2}, AuthorKind: AuthorAgent, SessionID: "s1", AgentVendor: "claude-code", Reviewed: false, StampedAt: time.Now()},
+	}}
+	fresh := &ProvenanceMap{CommitSHA: "v2", Stamps: []Stamp{
+		{Region: Region{File: "a.go", Start: 2, End: 2}, AuthorKind: AuthorHuman, Reviewed: true, StampedAt: time.Now()},
+	}}
+
+	got := Accumulate(prev, fresh)
+	if len(got.Stamps) != 1 {
+		t.Fatalf("fully re-stamped prior stamp must be dropped, got %+v", got.Stamps)
+	}
+	if got.Stamps[0].AuthorKind != AuthorHuman {
+		t.Fatalf("only the fresh human stamp should remain, got %+v", got.Stamps[0])
+	}
+}
+
+func TestAccumulate_RetainsPriorStampOnlyPartiallyReStamped(t *testing.T) {
+	// Boundary: a prior agent region the fresh diff re-stamped only in part still
+	// holds agent lines, so it is retained (blame resolves the overlap by
+	// preferring the fresher stamp). Only a region with zero surviving agent
+	// authorship is dropped.
+	prev := &ProvenanceMap{CommitSHA: "v1", Stamps: []Stamp{
+		{Region: Region{File: "a.go", Start: 1, End: 3}, AuthorKind: AuthorAgent, SessionID: "s1", Reviewed: false, StampedAt: time.Now()},
+	}}
+	fresh := &ProvenanceMap{CommitSHA: "v2", Stamps: []Stamp{
+		{Region: Region{File: "a.go", Start: 2, End: 2}, AuthorKind: AuthorHuman, Reviewed: true, StampedAt: time.Now()},
+	}}
+
+	got := Accumulate(prev, fresh)
+	if len(got.Stamps) != 2 {
+		t.Fatalf("partially re-stamped prior region must be retained, got %+v", got.Stamps)
+	}
+	if got.Stamps[1].AuthorKind != AuthorAgent || got.Stamps[1].Region.Start != 1 || got.Stamps[1].Region.End != 3 {
+		t.Fatalf("retained prior stamp should be unchanged: %+v", got.Stamps[1])
+	}
+}
+
 func TestAccumulate_NilInputs(t *testing.T) {
 	pm := &ProvenanceMap{CommitSHA: "x"}
 	if got := Accumulate(nil, pm); got != pm {

@@ -9,7 +9,7 @@
 
 **Mark Git diff regions using supplied agent edit logs, display provenance beside blame and persist review state.**
 
-`v0.2.0` · `Go 1.24+ / Git` · [MIT](LICENSE)
+`v0.3.0` · `Go 1.24+ / Git` · [MIT](LICENSE)
 
 [Website](https://provmark.lei6393.com) · [Demo record](docs/demo-results.json)
 
@@ -95,22 +95,22 @@ no unreviewed agent regions — clean to commit
   <source media="(max-width: 640px) and (prefers-color-scheme: dark)" srcset="assets/presentation/integrations-mobile-dark.svg">
   <source media="(max-width: 640px)" srcset="assets/presentation/integrations-mobile-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="assets/presentation/integrations-dark.svg">
-  <img src="assets/presentation/integrations-light.svg" width="1000" alt="vendor selects claude-code, deepseek-coder or qwen-coder parsers; the names do not prove compatibility with every native session format. init installs a pre-commit hook, while current review behavior does not block commits.">
+  <img src="assets/presentation/integrations-light.svg" width="1000" alt="vendor selects claude-code, deepseek-coder or qwen-coder parsers; the names do not prove compatibility with every native session format. init installs a pre-commit hook that lists unreviewed agent regions at commit time and never blocks commits.">
 </picture>
 
-vendor selects claude-code, deepseek-coder or qwen-coder parsers; the names do not prove compatibility with every native session format. init installs a pre-commit hook, while current review behavior does not block commits.
+vendor selects claude-code, deepseek-coder or qwen-coder parsers; the names do not prove compatibility with every native session format. init installs a pre-commit hook that lists unreviewed agent regions at commit time and never blocks commits.
 
 
 
 ## Configuration
 
-`--dir` selects the repository, `--from` selects events and `--vendor` selects a parser. stamp covers staged and unstaged changes against HEAD, untracked new files, and staged content in a repo with no commits yet; commit_sha in the sidecar identifies the diff base. Restamping retains prior regions the new diff does not supersede, together with their review state, so committed regions keep their attribution in blame.
+`--dir` selects the repository, `--from` selects events and `--vendor` selects a parser. stamp covers staged and unstaged changes against HEAD, untracked new files, and staged content in a repo with no commits yet; commit_sha in the sidecar identifies the diff base. Restamping retains prior regions the new diff does not supersede, together with their review state, so committed regions keep their attribution in blame; a region the new diff fully re-stamps is replaced.
 
 ## Roadmap and scope
 
-Stamping, blame display and persistent review marks are implemented. Stronger native-log adapters and commit-time warnings require further validation. Cryptographic provenance proof and blocking commits are outside current capability.
+Stamping, blame display, persistent review marks and a commit-time warning about unreviewed agent regions are implemented. Stronger native-log adapters require further validation. Cryptographic provenance proof and blocking commits are outside current capability.
 
-- The unit is a diff hunk, which can include context lines; this is not independent authorship proof for every character.
+- The unit is a diff hunk (zero context, exactly the changed lines); this is not independent authorship proof for every character.
 - Missing or unreadable logs cause hunks to default to human; that label does not establish verified human authorship.
 
 ![Terminal recording](assets/demo.gif) · [Recording script](docs/demo.tape)
