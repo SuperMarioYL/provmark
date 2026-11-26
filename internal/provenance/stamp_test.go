@@ -245,11 +245,12 @@ func TestAccumulate_DropsPriorStampFullyReStampedAsHuman(t *testing.T) {
 	}
 }
 
-func TestAccumulate_RetainsPriorStampOnlyPartiallyReStamped(t *testing.T) {
-	// Boundary: a prior agent region the fresh diff re-stamped only in part still
-	// holds agent lines, so it is retained (blame resolves the overlap by
-	// preferring the fresher stamp). Only a region with zero surviving agent
-	// authorship is dropped.
+func TestAccumulate_TrimsPriorStampPartiallyReStamped(t *testing.T) {
+	// Regression (v0.4.0): a prior agent region the fresh diff re-stamped only in
+	// part used to be retained whole, so two stamps covered the same lines and the
+	// two views of the sidecar disagreed — blame took the first (fresh) stamp and
+	// said human while review still listed the whole prior agent region. The
+	// retained stamp now covers only the lines the fresh diff did not re-stamp.
 	prev := &ProvenanceMap{CommitSHA: "v1", Stamps: []Stamp{
 		{Region: Region{File: "a.go", Start: 1, End: 3}, AuthorKind: AuthorAgent, SessionID: "s1", Reviewed: false, StampedAt: time.Now()},
 	}}
@@ -258,11 +259,44 @@ func TestAccumulate_RetainsPriorStampOnlyPartiallyReStamped(t *testing.T) {
 	}}
 
 	got := Accumulate(prev, fresh)
-	if len(got.Stamps) != 2 {
-		t.Fatalf("partially re-stamped prior region must be retained, got %+v", got.Stamps)
+	want := []Region{
+		{File: "a.go", Start: 2, End: 2}, // fresh human
+		{File: "a.go", Start: 1, End: 1}, // retained agent, trimmed
+		{File: "a.go", Start: 3, End: 3}, // retained agent, trimmed
 	}
-	if got.Stamps[1].AuthorKind != AuthorAgent || got.Stamps[1].Region.Start != 1 || got.Stamps[1].Region.End != 3 {
-		t.Fatalf("retained prior stamp should be unchanged: %+v", got.Stamps[1])
+	if len(got.Stamps) != len(want) {
+		t.Fatalf("expected %d stamps, got %+v", len(want), got.Stamps)
+	}
+	for i, w := range want {
+		if got.Stamps[i].Region != w {
+			t.Fatalf("stamp %d region = %+v, want %+v", i, got.Stamps[i].Region, w)
+		}
+	}
+	if got.Stamps[1].AuthorKind != AuthorAgent || got.Stamps[1].SessionID != "s1" {
+		t.Fatalf("trimmed prior stamp should keep its authorship: %+v", got.Stamps[1])
+	}
+}
+
+func TestNormalizeFile(t *testing.T) {
+	root := t.TempDir()
+	cases := []struct{ in, want string }{
+		{"a.go", "a.go"},
+		{"./a.go", "a.go"},
+		{"./sub/../a.go", "a.go"},
+		{"sub/b.go", "sub/b.go"},
+		{filepath.Join(root, "a.go"), "a.go"},
+		{filepath.Join(root, "sub", "b.go"), "sub/b.go"},
+		{"", ""},
+	}
+	for _, c := range cases {
+		if got := NormalizeFile(root, c.in); got != c.want {
+			t.Errorf("NormalizeFile(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+	// A path outside the repo is not silently rewritten into it.
+	outside := filepath.Join(filepath.Dir(root), "elsewhere.go")
+	if got := NormalizeFile(root, outside); got != filepath.ToSlash(outside) {
+		t.Errorf("NormalizeFile(%q) = %q, want it unchanged", outside, got)
 	}
 }
 

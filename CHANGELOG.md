@@ -4,6 +4,51 @@ All notable changes to provmark are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-11-27
+
+### Fixed
+
+- **A source line starting with `++ ` no longer derails diff parsing.** The
+  parser treated every line whose prefix was `+++ ` as the diff's new-file path,
+  and git renders an added line whose own content starts with `++ ` exactly that
+  way. Every later hunk of that file was then stamped under the bogus path, so
+  the agent region vanished from `review` (which said "clean to commit") and from
+  `blame` (which showed `-`). Path headers are now read only inside a file's
+  header block, before its first `@@`.
+- **`review` no longer calls an unstamped repo clean.** With no `.provmark.json`
+  at all — the state before the first stamp — `review` printed "no unreviewed
+  agent regions — clean to commit": a pass verdict with zero provenance behind
+  it, because a missing sidecar loaded as an empty map. It now reports that
+  nothing has been stamped and names the `provmark stamp` step. The verdict stays
+  non-blocking, and `--quiet` (used by the pre-commit hook) stays silent.
+- **`blame` and `review --mark` accept the path the user actually typed.** Both
+  compared the argument verbatim against the sidecar's repo-relative path, so
+  `provmark blame ./a.go` (or an absolute path) rendered every line `-`, and
+  `provmark review --mark ./a.go:4-5` printed "marked 0" and exited 0 while
+  `review` still listed the region. One normalizer now maps `./a.go`,
+  `a/../a.go` and an absolute path inside the repo onto the stamped path.
+- **A partially re-stamped prior region is trimmed, not kept whole.** When a
+  fresh diff re-stamped only part of an earlier stamp, both stamps stayed in the
+  sidecar covering the same lines; `blame` took the first covering stamp and said
+  `human` while `review` still listed the whole prior agent region. A retained
+  stamp now covers only the lines the fresh diff did not re-stamp, and is dropped
+  when nothing remains.
+- **An unreadable `--from` log is an error instead of fabricated human
+  provenance.** A typo'd or permission-blocked log path produced one warning and
+  then stamped every hunk human (Reviewed by default), dropping the record of the
+  agent lines the fresh diff covered — so `blame` called agent-written lines
+  human and `review` reported clean. An unopenable log now fails the stamp and
+  leaves the sidecar untouched; a readable log with no recognisable events still
+  degrades to all-human with a warning, and omitting `--from` still means "these
+  edits are mine". The README and site limitations that described the old
+  fail-open are corrected.
+
+### Added
+
+- The version-lockstep test now also pins `docs/demo-results.json`'s `version`,
+  the site's recorded demo output, which could drift while every other surface
+  matched.
+
 ## [0.3.0] - 2026-10-22
 
 ### Fixed

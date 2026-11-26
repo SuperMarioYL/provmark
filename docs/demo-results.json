@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0",
+  "version": "0.4.0",
   "scope": "Actual Git diff correlation and persisted review marking over a temporary repository with explicit synthetic edit events. No real agent logs or cryptographic authorship proof.",
   "inputs": [
     {

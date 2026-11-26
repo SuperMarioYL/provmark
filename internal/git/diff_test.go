@@ -96,6 +96,34 @@ diff --git a/b.go b/b.go
 	}
 }
 
+func TestParseDiff_AddedLineStartingWithPlusPlusIsNotAHeader(t *testing.T) {
+	// Regression (v0.4.0): an added source line whose content starts with "++ "
+	// is rendered as "+++ ..." and used to be read as the new-file path, so every
+	// later hunk of the same file was attributed to the bogus name.
+	diff := `diff --git a/a.go b/a.go
+index 01f84f8..cb5a892 100644
+--- a/a.go
++++ b/a.go
+@@ -2 +2 @@ l1
+-l2
++++ counter
+@@ -10 +10 @@ l9
+-l10
++AGENT10
+`
+	hunks, err := ParseDiff(diff)
+	if err != nil {
+		t.Fatalf("ParseDiff: %v", err)
+	}
+	want := []Hunk{
+		{File: "a.go", StartLine: 2, EndLine: 2},
+		{File: "a.go", StartLine: 10, EndLine: 10},
+	}
+	if !reflect.DeepEqual(hunks, want) {
+		t.Fatalf("got %+v, want %+v", hunks, want)
+	}
+}
+
 func TestUntrackedHunks_FullFilePerUntrackedFile(t *testing.T) {
 	// Regression (v0.2.0): git diff never lists untracked files, so an
 	// agent-written brand-new file was invisible to provmark stamp.

@@ -10,7 +10,7 @@
   },
   "meta": {
     "visual_profile": "neon-particle",
-    "content_version": "0.3.0",
+    "content_version": "0.4.0",
     "demo_source": "docs/demo-results.json"
   },
   "hero": {
@@ -183,8 +183,8 @@
           "en": "Configuration"
         },
         "body": {
-          "zh": "`--dir` 指定仓库，`--from` 指向事件日志，`--vendor` 选择解析器。stamp 检查 HEAD 后的已暂存与未暂存修改；侧车中的 commit_sha 表示 diff 基线。相同区域重新盖章时会尝试保留既有审阅状态。",
-          "en": "`--dir` selects the repository, `--from` selects events and `--vendor` selects a parser. stamp inspects staged and unstaged changes against HEAD; commit_sha in the sidecar identifies the diff base. Restamping attempts to preserve existing review state for unchanged regions."
+          "zh": "`--dir` 指定仓库，`--from` 指向事件日志，`--vendor` 选择解析器。stamp 检查 HEAD 后的已暂存与未暂存修改；侧车中的 commit_sha 表示 diff 基线。重新盖章时保留新 diff 未覆盖区域的既有审阅状态，被新 diff 覆盖的行从保留区域中裁掉。",
+          "en": "`--dir` selects the repository, `--from` selects events and `--vendor` selects a parser. stamp inspects staged and unstaged changes against HEAD; commit_sha in the sidecar identifies the diff base. Restamping preserves review state for regions the new diff does not cover and trims the covered lines out of the retained regions."
         }
       }
     ]
@@ -248,11 +248,11 @@
       "en": "The unit is a diff hunk (zero context, exactly the changed lines); this is not independent authorship proof for every character."
     },
     {
-      "zh": "缺少或无法读取日志时 hunk 默认 human，不能把该标签当作已验证的人类作者。",
-      "en": "Missing or unreadable logs cause hunks to default to human; that label does not establish verified human authorship."
+      "zh": "可读但无法识别的日志会让 hunk 默认 human，不能把该标签当作已验证的人类作者；`--from` 路径无法打开时 stamp 直接报错，不改动侧车。",
+      "en": "A readable log with no recognisable events lets hunks default to human, and that label does not establish verified human authorship; an unopenable `--from` path makes stamp fail without touching the sidecar."
     }
   ],
   "footer": {
-    "tag": "0.3.0 · Go 1.24+ / Git · MIT"
+    "tag": "0.4.0 · Go 1.24+ / Git · MIT"
   }
 }

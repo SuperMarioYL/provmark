@@ -235,6 +235,145 @@ func TestStamp_TrackedSidecarNotStampedAsEdit(t *testing.T) {
 	}
 }
 
+func TestStamp_AddedPlusPlusLineKeepsFileAttribution(t *testing.T) {
+	// Regression (v0.4.0): an added line whose content starts with "++ " is
+	// rendered as "+++ ..." by git and was read as the diff's new-file header, so
+	// a later hunk in the same file was stamped under a bogus filename and the
+	// agent region vanished from review.
+	dir := t.TempDir()
+	writeFile(t, dir, "a.go", "l1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\nl10\n")
+	runGit(t, dir, "init", "-q")
+	runGit(t, dir, "config", "user.email", "test@example.com")
+	runGit(t, dir, "config", "user.name", "Test")
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-q", "-m", "init")
+
+	writeFile(t, dir, "a.go", "l1\n++ counter\nl3\nl4\nl5\nl6\nl7\nl8\nl9\nAGENT10\n")
+	log := writeEvents(t, `{"file":"a.go","start_line":10,"end_line":10,"session_id":"s1"}`)
+	runStampCmd(t, dir, log)
+
+	review := runReviewCmd(t, dir)
+	if !strings.Contains(review, "a.go:10-10") {
+		t.Fatalf("the agent region must stay keyed to a.go:\n%s", review)
+	}
+	var blameOut bytes.Buffer
+	if err := runBlame(dir, "a.go", &blameOut); err != nil {
+		t.Fatalf("runBlame: %v", err)
+	}
+	if !strings.Contains(blameOut.String(), "agent: s1 (claude-code)") {
+		t.Fatalf("blame must attribute line 10 to the agent:\n%s", blameOut.String())
+	}
+}
+
+func TestReview_NoSidecarDoesNotClaimClean(t *testing.T) {
+	// Regression (v0.4.0): with no .provmark.json at all, review printed
+	// "no unreviewed agent regions — clean to commit" and exited 0 — a pass
+	// verdict backed by zero provenance. The absence must be reported instead.
+	dir := newTestRepo(t)
+	out := runReviewCmd(t, dir)
+	if strings.Contains(out, "clean to commit") {
+		t.Fatalf("an unstamped repo must not be reported clean:\n%s", out)
+	}
+	if !strings.Contains(out, "no provenance recorded yet") || !strings.Contains(out, "provmark stamp") {
+		t.Fatalf("review should say nothing is stamped and how to stamp:\n%s", out)
+	}
+	// The verdict is still non-blocking.
+	if err := runReview(dir, false, &bytes.Buffer{}); err != nil {
+		t.Fatalf("review must stay non-blocking: %v", err)
+	}
+}
+
+func TestBlameAndMark_NormalizeUserPaths(t *testing.T) {
+	// Regression (v0.4.0): blame and review --mark compared the user's path
+	// verbatim against the sidecar's repo-relative path, so "./a.go" rendered
+	// every line unknown and "./a.go:4-5" marked nothing at exit 0.
+	dir := newTestRepo(t)
+	writeFile(t, dir, "a.go", "a\nb\nc\nA4\nA5\n")
+	log := writeEvents(t, `{"file":"a.go","start_line":4,"end_line":5,"session_id":"s1"}`)
+	runStampCmd(t, dir, log)
+
+	for _, arg := range []string{"./a.go", filepath.Join(dir, "a.go")} {
+		var out bytes.Buffer
+		if err := runBlame(dir, arg, &out); err != nil {
+			t.Fatalf("runBlame(%q): %v", arg, err)
+		}
+		if !strings.Contains(out.String(), "agent: s1 (claude-code)") {
+			t.Fatalf("blame %q must resolve to a.go's stamps:\n%s", arg, out.String())
+		}
+	}
+
+	var markOut bytes.Buffer
+	if err := runMark(dir, "./a.go:4-5", &markOut); err != nil {
+		t.Fatalf("runMark: %v", err)
+	}
+	if !strings.Contains(markOut.String(), "marked 1") {
+		t.Fatalf("marking ./a.go:4-5 must match a.go's agent region:\n%s", markOut.String())
+	}
+	if review := runReviewCmd(t, dir); !strings.Contains(review, "no unreviewed agent regions") {
+		t.Fatalf("review should be clean after the mark:\n%s", review)
+	}
+}
+
+func TestStamp_TrimmedPriorRegionAgreesWithBlame(t *testing.T) {
+	// Regression (v0.4.0): when the fresh diff re-stamped only part of a prior
+	// agent region, both stamps stayed whole in the sidecar, so blame said human
+	// for the rewritten lines while review still listed the full agent region.
+	dir := newTestRepo(t)
+	writeFile(t, dir, "a.go", "A1\nA2\nA3\nA4\nA5\n")
+	log := writeEvents(t, `{"file":"a.go","start_line":1,"end_line":5,"session_id":"s1"}`)
+	runStampCmd(t, dir, log)
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-q", "-m", "c1")
+
+	// A human rewrites lines 1-3; no agent log for this stamp.
+	writeFile(t, dir, "a.go", "H1\nH2\nH3\nA4\nA5\n")
+	runStampCmd(t, dir, "")
+
+	var blameOut bytes.Buffer
+	if err := runBlame(dir, "a.go", &blameOut); err != nil {
+		t.Fatalf("runBlame: %v", err)
+	}
+	if !strings.Contains(blameOut.String(), "human") {
+		t.Fatalf("blame should report the rewritten lines human:\n%s", blameOut.String())
+	}
+	review := runReviewCmd(t, dir)
+	if !strings.Contains(review, "a.go:4-5") {
+		t.Fatalf("review should flag the surviving agent lines 4-5:\n%s", review)
+	}
+	if strings.Contains(review, "a.go:1-5") {
+		t.Fatalf("review must not claim the human-rewritten lines 1-3:\n%s", review)
+	}
+}
+
+func TestStamp_UnreadableLogLeavesSidecarIntact(t *testing.T) {
+	// Regression (v0.4.0): a typo'd --from path degraded to all-human, so the
+	// next stamp rewrote a recorded agent region as reviewed human at exit 0.
+	dir := newTestRepo(t)
+	writeFile(t, dir, "a.go", "a\nAGENT\nc\n")
+	log := writeEvents(t, `{"file":"a.go","start_line":2,"end_line":2,"session_id":"s1"}`)
+	runStampCmd(t, dir, log)
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-q", "-m", "c1")
+
+	writeFile(t, dir, "a.go", "a\nAGENT-V2\nc\n")
+	var out, errBuf bytes.Buffer
+	err := runStamp(dir, log+".missing", "claude-code", &out, &errBuf)
+	if err == nil {
+		t.Fatalf("an unreadable --from log must be an error, got stdout %q", out.String())
+	}
+
+	data, readErr := os.ReadFile(filepath.Join(dir, ".provmark.json"))
+	if readErr != nil {
+		t.Fatalf("read sidecar: %v", readErr)
+	}
+	if !strings.Contains(string(data), `"author_kind": "agent"`) {
+		t.Fatalf("the recorded agent region must survive:\n%s", data)
+	}
+	if review := runReviewCmd(t, dir); !strings.Contains(review, "a.go:2-2") {
+		t.Fatalf("review must still list the unreviewed agent region:\n%s", review)
+	}
+}
+
 // buildProvmark compiles the command under test. The pre-commit hook shells out
 // to the real binary, so the hook test cannot run without one.
 func buildProvmark(t *testing.T) string {

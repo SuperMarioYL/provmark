@@ -76,12 +76,11 @@ func MergeReviewState(prev, next *ProvenanceMap) {
 // without it each re-stamp silently discards the regions earlier stamps
 // recorded, and provmark blame regresses to unknown on committed agent lines.
 //
-// A prior stamp is superseded (and dropped) when the fresh diff re-stamped the
-// whole region it covers: either an identical region+kind stamp exists, or a
-// fresh stamp of the same file fully contains its region. Without the second
-// rule an agent stamp whose lines a human has since rewritten stayed in the
-// sidecar as an unreviewed agent region — blame said human while review still
-// flagged it, so the two views of one sidecar disagreed.
+// A retained prior stamp is trimmed to the lines no fresh stamp of the same file
+// covers, and dropped entirely when that leaves nothing. Without the trimming a
+// partially re-stamped region stayed whole in the sidecar, so blame (which takes
+// the first covering stamp) and review (which iterates every stamp) disagreed
+// about the lines the fresh diff had just re-stamped.
 func Accumulate(prev, fresh *ProvenanceMap) *ProvenanceMap {
 	if fresh == nil {
 		return prev
@@ -89,35 +88,43 @@ func Accumulate(prev, fresh *ProvenanceMap) *ProvenanceMap {
 	if prev == nil {
 		return fresh
 	}
-	freshKeys := make(map[string]bool, len(fresh.Stamps))
+	freshByFile := make(map[string][]Region, len(fresh.Stamps))
 	for _, s := range fresh.Stamps {
-		freshKeys[stampKey(s)] = true
+		freshByFile[s.Region.File] = append(freshByFile[s.Region.File], s.Region)
 	}
 	out := &ProvenanceMap{CommitSHA: fresh.CommitSHA, Stamps: fresh.Stamps}
 	for _, s := range prev.Stamps {
-		if freshKeys[stampKey(s)] || reStampedByFresh(s, fresh.Stamps) {
-			continue
+		for _, r := range subtractRegions(s.Region, freshByFile[s.Region.File]) {
+			retained := s
+			retained.Region = r
+			out.Stamps = append(out.Stamps, retained)
 		}
-		out.Stamps = append(out.Stamps, s)
 	}
 	return out
 }
 
-// reStampedByFresh reports whether a fresh stamp of the same file fully covers
-// s.Region. The fresh diff then re-stamped that whole region, so the prior
-// record no longer describes the current lines and is superseded. A region the
-// fresh diff only partly overlaps is retained: it still holds lines the fresh
-// diff did not touch.
-func reStampedByFresh(s Stamp, fresh []Stamp) bool {
-	for _, f := range fresh {
-		if f.Region.File != s.Region.File {
-			continue
+// subtractRegions returns the sub-ranges of r that none of covered intersects.
+// The result is empty when covered fully contains r, and keeps r's file so a
+// trimmed stamp stays keyed to the file it describes.
+func subtractRegions(r Region, covered []Region) []Region {
+	out := []Region{r}
+	for _, c := range covered {
+		var next []Region
+		for _, cur := range out {
+			if c.Start > cur.End || c.End < cur.Start { // disjoint
+				next = append(next, cur)
+				continue
+			}
+			if cur.Start < c.Start {
+				next = append(next, Region{File: cur.File, Start: cur.Start, End: c.Start - 1})
+			}
+			if c.End < cur.End {
+				next = append(next, Region{File: cur.File, Start: c.End + 1, End: cur.End})
+			}
 		}
-		if f.Region.Start <= s.Region.Start && s.Region.End <= f.Region.End {
-			return true
-		}
+		out = next
 	}
-	return false
+	return out
 }
 
 // stampKey is the stable identity of a stamp across re-stamps: a region plus

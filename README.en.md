@@ -9,7 +9,7 @@
 
 **Mark Git diff regions using supplied agent edit logs, display provenance beside blame and persist review state.**
 
-`v0.3.0` · `Go 1.24+ / Git` · [MIT](LICENSE)
+`v0.4.0` · `Go 1.24+ / Git` · [MIT](LICENSE)
 
 [Website](https://provmark.lei6393.com) · [Demo record](docs/demo-results.json)
 
@@ -104,14 +104,14 @@ vendor selects claude-code, deepseek-coder or qwen-coder parsers; the names do n
 
 ## Configuration
 
-`--dir` selects the repository, `--from` selects events and `--vendor` selects a parser. stamp covers staged and unstaged changes against HEAD, untracked new files, and staged content in a repo with no commits yet; commit_sha in the sidecar identifies the diff base. Restamping retains prior regions the new diff does not supersede, together with their review state, so committed regions keep their attribution in blame; a region the new diff fully re-stamps is replaced.
+`--dir` selects the repository, `--from` selects events and `--vendor` selects a parser. stamp covers staged and unstaged changes against HEAD, untracked new files, and staged content in a repo with no commits yet; commit_sha in the sidecar identifies the diff base. Restamping retains prior regions the new diff does not supersede, together with their review state, so committed regions keep their attribution in blame; the lines the new diff re-stamps are trimmed out of a retained region (and a fully re-stamped region is replaced), so blame and review reach the same conclusion from one sidecar.
 
 ## Roadmap and scope
 
 Stamping, blame display, persistent review marks and a commit-time warning about unreviewed agent regions are implemented. Stronger native-log adapters require further validation. Cryptographic provenance proof and blocking commits are outside current capability.
 
 - The unit is a diff hunk (zero context, exactly the changed lines); this is not independent authorship proof for every character.
-- Missing or unreadable logs cause hunks to default to human; that label does not establish verified human authorship.
+- A readable log with no recognisable events lets hunks default to human, and that label does not establish verified human authorship; an unopenable `--from` path makes stamp fail without touching the sidecar.
 
 ![Terminal recording](assets/demo.gif) · [Recording script](docs/demo.tape)
 

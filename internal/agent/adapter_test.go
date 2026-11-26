@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -79,6 +80,25 @@ func TestJSONLAdapter_MissingFile(t *testing.T) {
 	}
 	if _, err := a.Parse(""); err == nil {
 		t.Fatalf("expected error for empty path")
+	}
+}
+
+func TestParse_MissingLogIsUnreadable(t *testing.T) {
+	// Regression (v0.4.0): an unreadable --from path used to be indistinguishable
+	// from a log that carried no events, so stamping degraded to all-human and
+	// rewrote recorded agent regions as reviewed human. Callers must be able to
+	// tell the two apart.
+	a := jsonlAdapter{vendor: "claude-code"}
+	_, err := a.Parse(filepath.Join(t.TempDir(), "nope.jsonl"))
+	if !errors.Is(err, ErrLogUnreadable) {
+		t.Fatalf("missing log should wrap ErrLogUnreadable, got %v", err)
+	}
+
+	// A readable log with no recognised events is the documented degrade, not an
+	// unreadable path.
+	empty := writeLog(t, "sess.jsonl", `{"unrelated":true}`)
+	if _, err := a.Parse(empty); errors.Is(err, ErrLogUnreadable) {
+		t.Fatalf("an empty-but-readable log must not be ErrLogUnreadable: %v", err)
 	}
 }
 

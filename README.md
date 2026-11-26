@@ -9,7 +9,7 @@
 
 **根据提供的 Agent 编辑日志标记 Git diff 区域，在 blame 旁展示来源，并保存审阅状态。**
 
-`v0.3.0` · `Go 1.24+ / Git` · [MIT](LICENSE)
+`v0.4.0` · `Go 1.24+ / Git` · [MIT](LICENSE)
 
 [Website](https://provmark.lei6393.com) · [Demo record](docs/demo-results.json)
 
@@ -104,14 +104,14 @@ vendor 可选 claude-code、deepseek-coder、qwen-coder，但名称表示注册�
 
 ## 配置
 
-`--dir` 指定仓库，`--from` 指向事件日志，`--vendor` 选择解析器。stamp 覆盖 HEAD 后的已暂存与未暂存修改、未跟踪的新文件，以及无提交仓库中的已暂存内容；侧车中的 commit_sha 表示 diff 基线。重新盖章时会保留未被新 diff 覆盖区域的既有记录与审阅状态，使已提交区域在 blame 中不丢失归属；被新 diff 完整重盖的区域则被替换。
+`--dir` 指定仓库，`--from` 指向事件日志，`--vendor` 选择解析器。stamp 覆盖 HEAD 后的已暂存与未暂存修改、未跟踪的新文件，以及无提交仓库中的已暂存内容；侧车中的 commit_sha 表示 diff 基线。重新盖章时会保留未被新 diff 覆盖区域的既有记录与审阅状态，使已提交区域在 blame 中不丢失归属；被新 diff 重盖的行从旧区域中裁掉，整段被重盖时旧记录被替换，因此 blame 与 review 对同一侧车给出一致结论。
 
 ## 路线图与范围
 
 当前可盖章、展示 blame、持久化审阅标记，并在提交时提示未审阅的 agent 区域。更强的原生日志适配仍需继续验证；密码学来源证明和阻断提交不在当前能力内。
 
 - 标记粒度是 diff hunk（零上下文，恰好为改动的行）；不是对每个字符的独立作者证明。
-- 缺少或无法读取日志时 hunk 默认 human，不能把该标签当作已验证的人类作者。
+- 可读但无法识别的日志会让 hunk 默认 human，不能把该标签当作已验证的人类作者；`--from` 路径无法打开时 stamp 直接报错，不改动侧车。
 
 ![Terminal recording](assets/demo.gif) · [Recording script](docs/demo.tape)
 

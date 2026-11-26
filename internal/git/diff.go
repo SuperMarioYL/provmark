@@ -47,9 +47,15 @@ var hunkHeaderRe = regexp.MustCompile(`^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@
 // new-file line ranges. It tracks the current file across `diff --git`,
 // `--- a/`, `+++ b/` headers and emits one Hunk per `@@` block whose new-side
 // count is greater than zero (purely-deleted hunks have no new lines to stamp).
+//
+// The `+++ ` path header is only read while still inside a file's header block
+// (before that file's first `@@`). An added source line whose own content
+// starts with "++ " is rendered by git as "+++ ..." too, and must not be
+// mistaken for the new-file path.
 func ParseDiff(diffText string) ([]Hunk, error) {
 	var hunks []Hunk
 	file := ""
+	hunksSeen := false // the current file block has already reached a @@ header
 	scanner := bufio.NewScanner(strings.NewReader(diffText))
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
@@ -57,11 +63,13 @@ func ParseDiff(diffText string) ([]Hunk, error) {
 		switch {
 		case strings.HasPrefix(line, "diff --git "):
 			file = parseDiffGitPath(line)
-		case strings.HasPrefix(line, "+++ "):
+			hunksSeen = false
+		case strings.HasPrefix(line, "+++ ") && !hunksSeen:
 			if p := parseHeaderPath(line); p != "" && p != "/dev/null" {
 				file = p
 			}
 		case strings.HasPrefix(line, "@@ "):
+			hunksSeen = true
 			start, end, ok := parseHunkHeader(line)
 			if !ok {
 				continue

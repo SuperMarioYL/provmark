@@ -21,7 +21,7 @@ func repoFile(t *testing.T, rel string) string {
 }
 
 // TestVersionLockstepAcrossSurfaces is the mechanical guard for the version
-// string, which is duplicated across six surfaces that are hand-bumped at
+// string, which is duplicated across seven surfaces that are hand-bumped at
 // release time. go.mod carries no version field, so nothing else fails when they
 // drift; this test does.
 func TestVersionLockstepAcrossSurfaces(t *testing.T) {
@@ -59,5 +59,16 @@ func TestVersionLockstepAcrossSurfaces(t *testing.T) {
 	}
 	if !strings.Contains(repoFile(t, "CHANGELOG.md"), "## ["+v+"]") {
 		t.Errorf("CHANGELOG.md has no `## [%s]` heading", v)
+	}
+	// docs/demo-results.json is the site's demo_source; a stale version there
+	// shows up on the product site without failing anything else.
+	var demo struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal([]byte(repoFile(t, "docs/demo-results.json")), &demo); err != nil {
+		t.Fatalf("parse docs/demo-results.json: %v", err)
+	}
+	if demo.Version != v {
+		t.Errorf("docs/demo-results.json version = %q, want %q", demo.Version, v)
 	}
 }

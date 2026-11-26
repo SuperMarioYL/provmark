@@ -7,15 +7,17 @@
 // Qwen-Coder are UNVERIFIED as of m1 (plan frontmatter: schema_unverified:
 // true). The adapters below parse a documented neutral JSONL contract that the
 // absorption probe (docs/absorption-probe.md) is meant to reconcile against the
-// real formats. Parsing degrades gracefully: an unrecognised or missing log
-// yields no events and a warning rather than a hard failure, so `provmark
-// stamp` still produces an all-human provenance map when the agent substrate
-// can't be read.
+// real formats. A readable log with unrecognised content degrades gracefully:
+// it yields the events it recovered or none, plus an error the caller turns
+// into a warning, so `provmark stamp` still produces an all-human provenance
+// map. A log that cannot be opened at all wraps ErrLogUnreadable, which callers
+// treat as fatal — an unreadable path says nothing about who wrote the code.
 package agent
 
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -40,11 +42,20 @@ type Adapter interface {
 	// Name is the vendor slug the user passes to --vendor (e.g. "claude-code").
 	Name() string
 	// Parse reads sessionLogPath and returns the edit events it contains. A
-	// missing file or unparseable content is NOT fatal for stamping: return the
-	// events that could be recovered plus a non-nil error so callers can warn
-	// and fall back to all-human attribution.
+	// readable log with no recognisable content is not fatal for stamping:
+	// return the events that could be recovered plus a non-nil error so callers
+	// can warn and fall back to all-human attribution. A log that could not be
+	// opened at all wraps ErrLogUnreadable instead — callers must not treat an
+	// unreadable path as evidence of anything.
 	Parse(sessionLogPath string) ([]EditEvent, error)
 }
+
+// ErrLogUnreadable marks a session log that could not be opened (wrong --from
+// path, permission error). It is a configuration error, distinct from a log
+// that was read but carried no recognisable events: falling back to all-human
+// attribution on an unreadable path would fabricate human authorship for
+// whatever the agent just wrote. Callers test for it with errors.Is.
+var ErrLogUnreadable = errors.New("agent: session log unreadable")
 
 // jsonlAdapter is the shared neutral-JSONL parser. Each adapter is a thin
 // vendor-tagged instance; the neutral event schema is the whole point of the
@@ -66,7 +77,7 @@ func (a jsonlAdapter) Parse(sessionLogPath string) ([]EditEvent, error) {
 	}
 	f, err := os.Open(sessionLogPath)
 	if err != nil {
-		return nil, fmt.Errorf("agent: open %s session log %q: %w", a.vendor, sessionLogPath, err)
+		return nil, fmt.Errorf("%w: %s log %q: %w", ErrLogUnreadable, a.vendor, sessionLogPath, err)
 	}
 	defer f.Close()
 

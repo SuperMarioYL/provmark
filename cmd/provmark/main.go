@@ -12,6 +12,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -132,8 +133,10 @@ func runStamp(dir, from, vendor string, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	// 1. Parse the agent edit-event stream (degrades gracefully: an unreadable
-	//    or unrecognised log yields no events → all hunks stamped human).
+	// 1. Parse the agent edit-event stream. A readable log that carries no
+	//    recognised events degrades to all-human with a warning; an unreadable
+	//    path is a configuration error and must not rewrite the sidecar, since
+	//    "could not read the log" says nothing about who wrote the code.
 	var events []agent.EditEvent
 	if from == "" {
 		fmt.Fprintln(stderr, "no --from session log given; stamping all hunks as human")
@@ -145,7 +148,10 @@ func runStamp(dir, from, vendor string, stdout, stderr io.Writer) error {
 		}
 		evs, err := adp.Parse(from)
 		if err != nil {
-			fmt.Fprintf(stderr, "warning: %v\n", err) // graceful degrade
+			if errors.Is(err, agent.ErrLogUnreadable) {
+				return fmt.Errorf("sidecar left untouched; fix --from or omit it to stamp all hunks human: %w", err)
+			}
+			fmt.Fprintf(stderr, "warning: %v\n", err) // readable log, no usable events
 		}
 		events = evs
 	}
@@ -207,13 +213,16 @@ func runBlame(dir, file string, stdout io.Writer) error {
 		return err
 	}
 	fmt.Fprintf(stdout, "provmark blame %s (git blame on left, author-kind on right)\n\n", file)
-	fmt.Fprint(stdout, blame.Render(lines, pm.Stamps, file))
+	// Stamps are keyed on git's repo-relative path; the argument the user typed
+	// may be "./a.go" or absolute, which names the same file.
+	fmt.Fprint(stdout, blame.Render(lines, pm.Stamps, provenance.NormalizeFile(absDir, file)))
 	return nil
 }
 
-// runReview lists the unreviewed agent regions. quiet suppresses the all-clean
-// message so the pre-commit hook stays silent on a repo with nothing to flag;
-// the unreviewed list itself is always printed.
+// runReview lists the unreviewed agent regions. quiet suppresses both the
+// all-clean message and the not-yet-stamped notice so the pre-commit hook stays
+// silent on a repo with nothing to flag; the unreviewed list itself is always
+// printed.
 func runReview(dir string, quiet bool, stdout io.Writer) error {
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
@@ -222,6 +231,15 @@ func runReview(dir string, quiet bool, stdout io.Writer) error {
 	pm, err := provenance.Load(absDir)
 	if err != nil {
 		return err
+	}
+	if len(pm.Stamps) == 0 {
+		// No sidecar and a sidecar with no regions are the same state: nothing
+		// has been stamped, so "no unreviewed agent regions" would be a pass
+		// verdict with zero evidence behind it.
+		if !quiet {
+			fmt.Fprintf(stdout, "no provenance recorded yet (%s has no stamps) — run `provmark stamp` after an agent session\n", provenance.SidecarName)
+		}
+		return nil
 	}
 	unreviewed := review.Unreviewed(pm)
 	if len(unreviewed) == 0 {
@@ -247,7 +265,7 @@ func runMark(dir, target string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	n, err := review.Mark(absDir, file, start, end)
+	n, err := review.Mark(absDir, provenance.NormalizeFile(absDir, file), start, end)
 	if err != nil {
 		return err
 	}

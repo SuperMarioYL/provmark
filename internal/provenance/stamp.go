@@ -6,6 +6,8 @@
 package provenance
 
 import (
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/SuperMarioYL/provmark/internal/agent"
@@ -19,6 +21,24 @@ type Region struct {
 	File  string `json:"file"`
 	Start int    `json:"start"`
 	End   int    `json:"end"`
+}
+
+// NormalizeFile maps a user-supplied path onto the coordinate space
+// Region.File uses: repository-root-relative with forward slashes, which is the
+// form git reports and stamps are written in. "./a.go", "a/../a.go" and an
+// absolute path inside root all name the same file as "a.go" and must resolve
+// to the same stamp lookup; a path outside root is returned cleaned but
+// otherwise unchanged. root is the same directory the sidecar is read from.
+func NormalizeFile(root, file string) string {
+	if file == "" {
+		return ""
+	}
+	if filepath.IsAbs(file) {
+		if rel, err := filepath.Rel(root, file); err == nil && !strings.HasPrefix(rel, "..") {
+			file = rel
+		}
+	}
+	return filepath.ToSlash(filepath.Clean(file))
 }
 
 // Stamp is one hunk's authorship record: who/what authored the region, which
